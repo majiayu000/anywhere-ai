@@ -1,0 +1,100 @@
+# 服务器配置
+server:
+  port: 8080
+  mode: debug # debug, release, test
+  read_timeout: 60 # 秒
+  write_timeout: 60 # 秒
+  max_header_bytes: 1048576 # 1MB
+
+# 日志配置
+log:
+  level: info # debug, info, warn, error
+  format: text # text, json
+  output: console # console, file, both
+  filename: logs/app.log
+  max_size: 100 # MB
+  max_age: 30 # 天
+  max_backups: 10
+  compress: true
+
+# 数据库配置
+database:
+  driver: postgres # mysql, postgres, sqlite
+  host: 172.16.168.150
+  port: 55432
+  username: postgres
+  password: postgres
+  database: postgres
+  charset: utf8mb4
+  timezone: Asia/Shanghai
+  ssl_mode: disable
+  max_open_conns: 10
+  max_idle_conns: 2
+  conn_max_lifetime: 3600 # 秒
+  log_level: info
+
+# Redis缓存配置
+redis:
+  addr: localhost:6379
+  password: ""
+  db: 0
+  pool_size: 10
+  min_idle_conns: 5
+  dial_timeout: 5 # 秒
+  read_timeout: 3 # 秒
+  write_timeout: 3 # 秒
+  idle_timeout: 300 # 秒
+
+# JWT配置
+jwt:
+  secret_key: "your-jwt-secret-key-change-this-in-production"
+  issuer: "gin-starter"
+  expiration: 24h
+  refresh_expiration: 168h # 7天
+
+# CORS配置
+cors:
+  allow_origins:
+    - "*"
+  allow_methods:
+    - "GET"
+    - "POST"
+    - "PUT"
+    - "PATCH"
+    - "DELETE"
+    - "HEAD"
+    - "OPTIONS"
+  allow_headers:
+    - "Origin"
+    - "Content-Length"
+    - "Content-Type"
+    - "Authorization"
+    - "X-Requested-With"
+  expose_headers:
+    - "Content-Length"
+  allow_credentials: false
+  max_age: 43200 # 12小时
+
+# 限流配置
+rate_limit:
+  capacity: 100 # 每分钟请求数
+  rate: 60s # 时间窗口
+  ttl: 3600s # 桶生存时间
+
+# 监控配置
+monitor:
+  enable_metrics: true
+  enable_health_check: true
+  max_memory_mb: 512
+  max_goroutines: 1000
+
+# OAuth配置（如需要认证功能，请取消注释并填入实际值）
+# oauth:
+#   google:
+#     client_id: "your-google-client-id"
+#     client_secret: "your-google-client-secret"
+#     redirect_url: "http://localhost:8080/auth/google/callback"
+#   apple:
+#     client_id: "your-apple-client-id"
+#     client_secret: "your-apple-client-secret"
+#     redirect_url: "http://localhost:8080/auth/apple/callback"
