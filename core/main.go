@@ -7,21 +7,11 @@ import (
 
 	"github.com/gin-gonic/gin"
 	
-	"github.com/majiayu000/ai-cli-core/database"
-	"github.com/majiayu000/ai-cli-core/services"
+	"github.com/majiayu000/anywhere-ai/core/services"
+	"github.com/majiayu000/anywhere-ai/core/tmux"
 )
 
 func main() {
-	// Initialize database
-	if err := database.InitDatabase(); err != nil {
-		log.Fatalf("Failed to initialize database: %v", err)
-	}
-
-	// Run migrations
-	if err := database.AutoMigrate(); err != nil {
-		log.Fatalf("Failed to migrate database: %v", err)
-	}
-
 	// Initialize Gin router
 	router := gin.Default()
 
@@ -39,6 +29,10 @@ func main() {
 		c.Next()
 	})
 
+	// Serve static files (web interface)
+	router.Static("/static", "../web")
+	router.StaticFile("/", "../web/index.html")
+
 	// Health check endpoint
 	router.GET("/health", func(c *gin.Context) {
 		c.JSON(200, gin.H{
@@ -48,16 +42,18 @@ func main() {
 		})
 	})
 
+	// Initialize core managers
+	tmuxManager := tmux.NewManager()
+
 	// Initialize services
-	agentService := services.NewAgentCommunicationService()
-	terminalService, err := services.NewTerminalManagerService()
-	if err != nil {
-		log.Fatalf("Failed to initialize terminal service: %v", err)
-	}
+	wsService := services.NewTerminalWebSocketService(tmuxManager)
+	apiService := services.NewTerminalAPIService(tmuxManager, wsService)
 
 	// Register routes
-	agentService.RegisterRoutes(router)
-	terminalService.RegisterRoutes(router)
+	apiService.RegisterRoutes(router)
+	
+	// WebSocket endpoint
+	router.GET("/api/v1/ws", wsService.HandleWebSocket)
 
 	// Start server
 	port := os.Getenv("PORT")
@@ -66,9 +62,9 @@ func main() {
 	}
 
 	log.Printf("🚀 Anywhere Core server starting on port %s", port)
-	log.Printf("📡 Agent Communication: http://localhost:%s/api/v1/agent", port)
-	log.Printf("💻 Terminal Management: http://localhost:%s/api/v1/terminal", port)
+	log.Printf("💻 Terminal API: http://localhost:%s/api/v1/terminal", port)
 	log.Printf("🔗 WebSocket: ws://localhost:%s/api/v1/ws", port)
+	log.Printf("🌐 Web Interface: Open web/index.html in your browser")
 	
 	if err := router.Run(":" + port); err != nil {
 		log.Fatalf("Failed to start server: %v", err)

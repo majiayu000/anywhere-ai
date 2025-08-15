@@ -122,7 +122,15 @@ func (m *Manager) SendCommand(ctx context.Context, sessionID string, command str
 	}
 
 	// Send keys to tmux pane
-	cmd := exec.CommandContext(ctx, "tmux", "send-keys", "-t", session.PaneID, command, "Enter")
+	var cmd *exec.Cmd
+	if command == "" {
+		// Just send Enter key
+		cmd = exec.CommandContext(ctx, "tmux", "send-keys", "-t", session.PaneID, "Enter")
+	} else {
+		// Send command followed by Enter
+		cmd = exec.CommandContext(ctx, "tmux", "send-keys", "-t", session.PaneID, command, "Enter")
+	}
+	
 	if err := cmd.Run(); err != nil {
 		return fmt.Errorf("failed to send command: %w", err)
 	}
