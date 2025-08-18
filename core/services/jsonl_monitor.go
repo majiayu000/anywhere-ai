@@ -266,14 +266,18 @@ func (m *JSONLMonitor) processLogEntry(sessionID string, entry *ClaudeLogEntry) 
 
 	switch entry.Type {
 	case "user":
-		// Skip user messages - they're handled by WebSocket service
-		// JSONL monitor only processes assistant messages to avoid duplicates
-		log.Printf("Skipping user message from JSONL to avoid duplicates: %s", sessionID)
+		// Skip creating duplicate user messages, but show typing indicator
+		// This means Claude has received the user message and is about to process it
+		log.Printf("User message detected in JSONL - Claude is about to respond: %s", sessionID)
+		m.wsService.BroadcastTypingIndicator(sessionID, true)
 
 	case "assistant":
 		// Extract Claude's response
 		content := m.extractTextContent(entry.Message.Content)
 		if content != "" {
+			// Stop typing indicator when Claude responds
+			m.wsService.BroadcastTypingIndicator(sessionID, false)
+			
 			// Check if this contains tool usage
 			requiresInput := m.containsToolUsage(entry.Message.Content)
 			
@@ -284,6 +288,21 @@ func (m *JSONLMonitor) processLogEntry(sessionID string, entry *ClaudeLogEntry) 
 			}
 			m.wsService.BroadcastMessage(sessionID, message)
 		}
+
+	case "thinking":
+		// Claude is processing/thinking - show typing indicator
+		log.Printf("Claude is thinking for session: %s", sessionID)
+		m.wsService.BroadcastTypingIndicator(sessionID, true)
+		
+	case "tool_use":
+		// Claude is using tools - show typing indicator with tool info
+		log.Printf("Claude is using tools for session: %s", sessionID)
+		m.wsService.BroadcastTypingIndicator(sessionID, true)
+		
+	case "processing":
+		// Claude is processing - show typing indicator
+		log.Printf("Claude is processing for session: %s", sessionID)
+		m.wsService.BroadcastTypingIndicator(sessionID, true)
 
 	case "summary":
 		// Session started - could create a welcome message

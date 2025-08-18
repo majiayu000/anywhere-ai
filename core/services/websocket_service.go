@@ -326,6 +326,24 @@ func (s *TerminalWebSocketService) BroadcastToSession(sessionID string, output s
 	s.hub.broadcast <- data
 }
 
+// BroadcastTypingIndicator broadcasts typing status to all clients watching a session
+func (s *TerminalWebSocketService) BroadcastTypingIndicator(sessionID string, isTyping bool) {
+	action := "typing"
+	if !isTyping {
+		action = "stopTyping"
+	}
+	
+	msg := WebSocketMessage{
+		Action:    action,
+		SessionID: sessionID,
+		Type:      "status",
+	}
+	data, _ := json.Marshal(msg)
+	s.hub.broadcast <- data
+	
+	log.Printf("Broadcasting typing indicator: %s for session %s", action, sessionID)
+}
+
 
 // sendExistingMessages sends existing messages to the client
 func (s *TerminalWebSocketService) sendExistingMessages(client *WebSocketClient, sessionID string) {

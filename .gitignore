@@ -6,6 +6,8 @@
 *.dylib
 anywhere
 cli/anywhere
+core/anywhere-core
+server/anywhere-server
 
 # Test binary
 *.test
@@ -37,6 +39,10 @@ Thumbs.db
 
 # Logs
 *.log
+
+# Process files
+*.pid
+server.pid
 
 # Temp
 tmp/

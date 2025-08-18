@@ -3,9 +3,11 @@ package services
 import (
 	"context"
 	"fmt"
+	"io"
 	"log"
 	"net/http"
 	"os/exec"
+	"strings"
 	"time"
 
 	"github.com/gin-gonic/gin"
@@ -14,19 +16,21 @@ import (
 
 // TerminalAPIService provides REST API for terminal management
 type TerminalAPIService struct {
-	tmuxManager   *tmux.Manager
-	wsService     *TerminalWebSocketService
-	claudeMonitor *ClaudeMonitor
-	jsonlMonitor  *JSONLMonitor
+	tmuxManager    *tmux.Manager
+	wsService      *TerminalWebSocketService
+	claudeMonitor  *ClaudeMonitor
+	jsonlMonitor   *JSONLMonitor
+	messageService *MessageService
 }
 
 // NewTerminalAPIService creates a new terminal API service
-func NewTerminalAPIService(tmuxManager *tmux.Manager, wsService *TerminalWebSocketService, claudeMonitor *ClaudeMonitor, jsonlMonitor *JSONLMonitor) *TerminalAPIService {
+func NewTerminalAPIService(tmuxManager *tmux.Manager, wsService *TerminalWebSocketService, claudeMonitor *ClaudeMonitor, jsonlMonitor *JSONLMonitor, messageService *MessageService) *TerminalAPIService {
 	return &TerminalAPIService{
-		tmuxManager:   tmuxManager,
-		wsService:     wsService,
-		claudeMonitor: claudeMonitor,
-		jsonlMonitor:  jsonlMonitor,
+		tmuxManager:    tmuxManager,
+		wsService:      wsService,
+		claudeMonitor:  claudeMonitor,
+		jsonlMonitor:   jsonlMonitor,
+		messageService: messageService,
 	}
 }
 
@@ -233,15 +237,222 @@ func (s *TerminalAPIService) AttachSession(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"success": true})
 }
 
+// GetSessionMessages gets all messages for a session
+func (s *TerminalAPIService) GetSessionMessages(c *gin.Context) {
+	sessionID := c.Param("id")
+	
+	ctx := context.Background()
+	messages, err := s.messageService.GetMessages(ctx, sessionID, 100, 0)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": fmt.Sprintf("Failed to get messages: %v", err)})
+		return
+	}
+
+	c.JSON(http.StatusOK, messages)
+}
+
+// SendSessionMessage sends a message to a session
+func (s *TerminalAPIService) SendSessionMessage(c *gin.Context) {
+	sessionID := c.Param("id")
+	
+	var req struct {
+		Content string `json:"content" binding:"required"`
+		Type    string `json:"type"` // "user" or "agent"
+	}
+	
+	if err := c.ShouldBindJSON(&req); err != nil {
+		log.Printf("Failed to bind JSON: %v", err)
+		c.JSON(http.StatusBadRequest, gin.H{"error": fmt.Sprintf("Invalid request: %v", err)})
+		return
+	}
+
+	ctx := context.Background()
+	
+	// Create user message by default
+	if req.Type == "" || req.Type == "user" {
+		message, err := s.messageService.CreateUserMessage(ctx, sessionID, req.Content, false)
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": fmt.Sprintf("Failed to send message: %v", err)})
+			return
+		}
+		
+		// Send to tmux session as well
+		if err := s.tmuxManager.SendLiteralInput(ctx, sessionID, req.Content); err != nil {
+			log.Printf("Failed to send input to tmux: %v", err)
+		}
+		
+		c.JSON(http.StatusOK, message)
+	} else {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Only user messages can be sent via API"})
+	}
+}
+
+// GetSessionMessageStatus gets message status for a session
+func (s *TerminalAPIService) GetSessionMessageStatus(c *gin.Context) {
+	sessionID := c.Param("id")
+	
+	ctx := context.Background()
+	status, err := s.messageService.GetMessageStatus(ctx, sessionID)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": fmt.Sprintf("Failed to get message status: %v", err)})
+		return
+	}
+
+	c.JSON(http.StatusOK, status)
+}
+
+// CommandInfo represents a Claude command with description
+type CommandInfo struct {
+	Command     string `json:"command"`
+	Description string `json:"description"`
+}
+
+// GetClaudeCommands fetches the latest Claude Code commands from official docs
+func (s *TerminalAPIService) GetClaudeCommands(c *gin.Context) {
+	// Try to fetch from official documentation
+	client := &http.Client{
+		Timeout: 10 * time.Second,
+	}
+	
+	resp, err := client.Get("https://docs.anthropic.com/en/docs/claude-code/slash-commands")
+	if err != nil {
+		log.Printf("Failed to fetch Claude commands from docs: %v", err)
+		// Return hardcoded commands as fallback
+		s.returnFallbackCommands(c)
+		return
+	}
+	defer resp.Body.Close()
+	
+	if resp.StatusCode != http.StatusOK {
+		log.Printf("Failed to fetch Claude commands, status: %d", resp.StatusCode)
+		s.returnFallbackCommands(c)
+		return
+	}
+	
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		log.Printf("Failed to read response body: %v", err)
+		s.returnFallbackCommands(c)
+		return
+	}
+	
+	// Parse HTML content to extract commands
+	commands := s.parseClaudeCommands(string(body))
+	if len(commands) == 0 {
+		log.Printf("No commands parsed from documentation, using fallback")
+		s.returnFallbackCommands(c)
+		return
+	}
+	
+	c.JSON(http.StatusOK, gin.H{
+		"commands": commands,
+		"source":   "documentation",
+		"updated":  time.Now(),
+	})
+}
+
+// parseClaudeCommands extracts commands from HTML content
+func (s *TerminalAPIService) parseClaudeCommands(html string) []CommandInfo {
+	commands := []CommandInfo{}
+	
+	// Look for patterns like "/command: description" or "/command - description"
+	lines := strings.Split(html, "\n")
+	for _, line := range lines {
+		// Clean HTML tags (basic)
+		line = strings.ReplaceAll(line, "<", "&lt;")
+		line = strings.ReplaceAll(line, ">", "&gt;")
+		line = strings.TrimSpace(line)
+		
+		if strings.Contains(line, "/") {
+			// Try to match command patterns
+			if idx := strings.Index(line, "/"); idx != -1 {
+				rest := line[idx:]
+				// Look for patterns like "/add-dir: Add additional working directories"
+				parts := strings.SplitN(rest, ":", 2)
+				if len(parts) == 2 {
+					cmd := strings.TrimSpace(parts[0])
+					desc := strings.TrimSpace(parts[1])
+					if strings.HasPrefix(cmd, "/") && len(cmd) > 1 && len(desc) > 0 {
+						commands = append(commands, CommandInfo{
+							Command:     cmd,
+							Description: desc,
+						})
+						continue
+					}
+				}
+				
+				// Try alternative pattern "/add-dir - Add additional working directories"
+				parts = strings.SplitN(rest, " - ", 2)
+				if len(parts) == 2 {
+					cmd := strings.TrimSpace(parts[0])
+					desc := strings.TrimSpace(parts[1])
+					if strings.HasPrefix(cmd, "/") && len(cmd) > 1 && len(desc) > 0 {
+						commands = append(commands, CommandInfo{
+							Command:     cmd,
+							Description: desc,
+						})
+					}
+				}
+			}
+		}
+	}
+	
+	return commands
+}
+
+// returnFallbackCommands returns hardcoded Claude commands
+func (s *TerminalAPIService) returnFallbackCommands(c *gin.Context) {
+	commands := []CommandInfo{
+		{Command: "/add-dir", Description: "Add additional working directories"},
+		{Command: "/agents", Description: "Manage custom AI subagents for specialized tasks"},
+		{Command: "/bug", Description: "Report bugs (sends conversation to Anthropic)"},
+		{Command: "/clear", Description: "Clear conversation history"},
+		{Command: "/compact", Description: "Compact conversation with optional focus instructions"},
+		{Command: "/config", Description: "View/modify configuration"},
+		{Command: "/cost", Description: "Show token usage statistics"},
+		{Command: "/doctor", Description: "Checks the health of your Claude Code installation"},
+		{Command: "/help", Description: "Get usage help"},
+		{Command: "/init", Description: "Initialize project with CLAUDE.md guide"},
+		{Command: "/login", Description: "Switch Anthropic accounts"},
+		{Command: "/logout", Description: "Sign out from your Anthropic account"},
+		{Command: "/mcp", Description: "Manage MCP server connections and OAuth authentication"},
+		{Command: "/memory", Description: "Edit CLAUDE.md memory files"},
+		{Command: "/model", Description: "Select or change the AI model"},
+		{Command: "/permissions", Description: "View or update permissions"},
+		{Command: "/pr_comments", Description: "View pull request comments"},
+		{Command: "/review", Description: "Request code review"},
+		{Command: "/status", Description: "View account and system statuses"},
+		{Command: "/terminal-setup", Description: "Install Shift+Enter key binding for newlines"},
+		{Command: "/vim", Description: "Enter vim mode for alternating insert and command modes"},
+	}
+	
+	c.JSON(http.StatusOK, gin.H{
+		"commands": commands,
+		"source":   "fallback",
+		"updated":  time.Now(),
+	})
+}
+
 // RegisterRoutes registers API routes
 func (s *TerminalAPIService) RegisterRoutes(router *gin.Engine) {
-	api := router.Group("/api/v1/terminal")
+	api := router.Group("/api/v1")
 	{
-		api.POST("/sessions", s.CreateSession)
-		api.GET("/sessions", s.ListSessions)
-		api.GET("/sessions/:id/output", s.GetSessionOutput)
-		api.POST("/sessions/:id/input", s.SendSessionInput)
-		api.DELETE("/sessions/:id", s.DeleteSession)
-		api.POST("/sessions/:id/attach", s.AttachSession)
+		// Claude commands endpoint
+		api.GET("/claude-commands", s.GetClaudeCommands)
+	}
+	
+	terminal := router.Group("/api/v1/terminal")
+	{
+		terminal.POST("/sessions", s.CreateSession)
+		terminal.GET("/sessions", s.ListSessions)
+		terminal.GET("/sessions/:id/output", s.GetSessionOutput)
+		terminal.POST("/sessions/:id/input", s.SendSessionInput)
+		terminal.DELETE("/sessions/:id", s.DeleteSession)
+		terminal.POST("/sessions/:id/attach", s.AttachSession)
+		
+		// Message endpoints
+		terminal.GET("/sessions/:id/messages", s.GetSessionMessages)
+		terminal.POST("/sessions/:id/messages", s.SendSessionMessage)
+		terminal.GET("/sessions/:id/messages/status", s.GetSessionMessageStatus)
 	}
 }

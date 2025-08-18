@@ -1,0 +1,812 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Anywhere AI - Simple Chat</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: #f8fafc;
+            height: 100vh;
+            display: flex;
+            flex-direction: column;
+        }
+
+        /* Header */
+        .header {
+            background: white;
+            padding: 1rem;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .title {
+            font-size: 1.2rem;
+            font-weight: 600;
+            color: #1f2937;
+        }
+
+        .status {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            font-size: 0.9rem;
+        }
+
+        .status-dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background: #ef4444;
+        }
+
+        .status-dot.connected {
+            background: #10b981;
+            animation: pulse 2s infinite;
+        }
+
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
+        }
+
+        /* Main Container */
+        .container {
+            flex: 1;
+            display: flex;
+            overflow: hidden;
+        }
+
+        /* Sidebar */
+        .sidebar {
+            width: 250px;
+            background: white;
+            border-right: 1px solid #e5e7eb;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .new-session {
+            margin: 1rem;
+            padding: 0.75rem;
+            background: #3b82f6;
+            color: white;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            font-weight: 500;
+        }
+
+        .new-session:hover {
+            background: #2563eb;
+        }
+
+        .sessions {
+            flex: 1;
+            overflow-y: auto;
+            padding: 0 1rem;
+        }
+
+        .session {
+            padding: 0.75rem;
+            margin-bottom: 0.5rem;
+            border-radius: 6px;
+            cursor: pointer;
+            border: 1px solid transparent;
+        }
+
+        .session:hover {
+            background: #f9fafb;
+        }
+
+        .session.active {
+            background: #eff6ff;
+            border-color: #3b82f6;
+        }
+
+        .session-name {
+            font-weight: 500;
+            margin-bottom: 0.25rem;
+        }
+
+        .session-info {
+            font-size: 0.8rem;
+            color: #6b7280;
+        }
+
+        /* Chat Area */
+        .chat {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            background: white;
+        }
+
+        .chat-header {
+            padding: 1rem;
+            border-bottom: 1px solid #e5e7eb;
+            font-weight: 600;
+        }
+
+        .messages {
+            flex: 1;
+            overflow-y: auto;
+            padding: 1rem;
+            display: flex;
+            flex-direction: column;
+            gap: 1rem;
+        }
+
+        .message {
+            display: flex;
+            gap: 0.75rem;
+            animation: fadeIn 0.3s ease;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        .avatar {
+            width: 32px;
+            height: 32px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 0.875rem;
+            flex-shrink: 0;
+        }
+
+        .message.user .avatar {
+            background: #10b981;
+            color: white;
+        }
+
+        .message.agent .avatar {
+            background: #3b82f6;
+            color: white;
+        }
+
+        .content {
+            flex: 1;
+        }
+
+        .sender {
+            font-weight: 600;
+            margin-bottom: 0.25rem;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .time {
+            font-size: 0.75rem;
+            color: #9ca3af;
+        }
+
+        .text {
+            line-height: 1.5;
+            color: #374151;
+        }
+
+        .text pre {
+            background: #f3f4f6;
+            border: 1px solid #e5e7eb;
+            border-radius: 4px;
+            padding: 0.5rem;
+            overflow-x: auto;
+            margin: 0.5rem 0;
+            font-family: 'Monaco', 'Consolas', monospace;
+            font-size: 0.875rem;
+        }
+
+        .text code {
+            background: #f3f4f6;
+            padding: 0.125rem 0.25rem;
+            border-radius: 3px;
+            font-family: 'Monaco', 'Consolas', monospace;
+            font-size: 0.875rem;
+        }
+
+        /* Input Area */
+        .input-area {
+            padding: 1rem;
+            border-top: 1px solid #e5e7eb;
+            background: white;
+        }
+
+        .input-wrapper {
+            display: flex;
+            gap: 0.75rem;
+            align-items: flex-end;
+        }
+
+        .input-box {
+            flex: 1;
+            background: #f9fafb;
+            border: 1px solid #e5e7eb;
+            border-radius: 6px;
+            padding: 0.75rem;
+        }
+
+        .input-box:focus-within {
+            border-color: #3b82f6;
+            background: white;
+        }
+
+        .message-input {
+            width: 100%;
+            background: transparent;
+            border: none;
+            outline: none;
+            resize: none;
+            font-family: inherit;
+            min-height: 20px;
+            max-height: 100px;
+        }
+
+        .send-btn {
+            padding: 0.75rem 1.5rem;
+            background: #3b82f6;
+            color: white;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            font-weight: 500;
+        }
+
+        .send-btn:hover:not(:disabled) {
+            background: #2563eb;
+        }
+
+        .send-btn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+
+        /* Empty State */
+        .empty {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            color: #9ca3af;
+        }
+
+        .empty h3 {
+            margin-bottom: 0.5rem;
+            color: #4b5563;
+        }
+
+        /* Tool Icons */
+        .tool-icon {
+            margin-right: 0.5rem;
+        }
+
+        /* Loading */
+        .loading {
+            text-align: center;
+            color: #9ca3af;
+            font-style: italic;
+        }
+
+        /* Typing Animation */
+        .typing-indicator {
+            display: flex;
+            gap: 0.75rem;
+            padding: 1rem 0;
+            animation: fadeIn 0.3s ease;
+        }
+
+        .typing-indicator .avatar {
+            background: #3b82f6;
+            color: white;
+        }
+
+        .typing-content {
+            flex: 1;
+        }
+
+        .typing-dots {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            padding: 0.75rem 1rem;
+            background: #f3f4f6;
+            border-radius: 1rem;
+            max-width: 120px;
+        }
+
+        .typing-dots::before {
+            content: "🤖 Claude is thinking";
+            font-size: 0.875rem;
+            color: #6b7280;
+        }
+
+        .typing-dots::after {
+            content: "...";
+            animation: typing 1.5s infinite;
+            font-weight: bold;
+            color: #3b82f6;
+        }
+
+        @keyframes typing {
+            0%, 20% { content: ""; }
+            40% { content: "."; }
+            60% { content: ".."; }
+            80%, 100% { content: "..."; }
+        }
+
+        /* Message Status */
+        .message-status {
+            font-size: 0.75rem;
+            color: #9ca3af;
+            margin-top: 0.25rem;
+        }
+
+        .message-status.sending {
+            color: #f59e0b;
+        }
+
+        .message-status.sent {
+            color: #10b981;
+        }
+
+        /* Send Button Loading State */
+        .send-btn.loading {
+            background: #9ca3af;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .send-btn.loading::before {
+            content: "";
+            position: absolute;
+            top: 0;
+            left: -100%;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(90deg, transparent, rgba(255,255,255,0.2), transparent);
+            animation: loading-shimmer 1.5s infinite;
+        }
+
+        @keyframes loading-shimmer {
+            0% { left: -100%; }
+            100% { left: 100%; }
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <div class="title">🤖 Anywhere AI Chat</div>
+        <div class="status">
+            <div class="status-dot" id="statusDot"></div>
+            <span id="statusText">Disconnected</span>
+        </div>
+    </div>
+
+    <div class="container">
+        <!-- Sidebar -->
+        <div class="sidebar">
+            <button class="new-session" onclick="createNewSession()">
+                ✨ New Session
+            </button>
+            <div class="sessions" id="sessionsList">
+                <div class="loading">Loading sessions...</div>
+            </div>
+        </div>
+
+        <!-- Chat Area -->
+        <div class="chat">
+            <!-- Empty State -->
+            <div class="empty" id="emptyState">
+                <h3>💬 No Session Selected</h3>
+                <p>Select a session from the sidebar or create a new one</p>
+            </div>
+
+            <!-- Chat Interface -->
+            <div id="chatInterface" style="display: none; flex: 1; flex-direction: column;">
+                <div class="chat-header">
+                    <span id="chatTitle">Chat Session</span>
+                </div>
+
+                <div class="messages" id="messagesContainer">
+                    <!-- Messages will appear here -->
+                </div>
+
+                <div class="input-area">
+                    <div class="input-wrapper">
+                        <div class="input-box">
+                            <textarea 
+                                class="message-input" 
+                                id="messageInput" 
+                                placeholder="Type your message..."
+                                onkeydown="handleKeyPress(event)"
+                                oninput="autoResize(this)"
+                            ></textarea>
+                        </div>
+                        <button class="send-btn" onclick="sendMessage()" id="sendBtn">
+                            Send
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const API_BASE = 'http://localhost:8080';
+        let ws = null;
+        let currentSessionId = null;
+        let sessions = [];
+        let messages = [];
+        let isTyping = false;
+        let typingTimeout = null;
+        let isComposing = false; // Track IME composition state
+
+        // Initialize
+        document.addEventListener('DOMContentLoaded', () => {
+            loadSessions();
+            connectWebSocket();
+        });
+
+        // WebSocket Connection
+        function connectWebSocket() {
+            ws = new WebSocket(`ws://localhost:8080/api/v1/ws`);
+            
+            ws.onopen = () => {
+                console.log('Connected to WebSocket');
+                updateStatus(true);
+            };
+
+            ws.onmessage = (event) => {
+                const data = JSON.parse(event.data);
+                handleWebSocketMessage(data);
+            };
+
+            ws.onclose = () => {
+                console.log('WebSocket disconnected');
+                updateStatus(false);
+                setTimeout(connectWebSocket, 3000);
+            };
+
+            ws.onerror = (error) => {
+                console.error('WebSocket error:', error);
+                updateStatus(false);
+            };
+        }
+
+        // Update Connection Status
+        function updateStatus(connected) {
+            const dot = document.getElementById('statusDot');
+            const text = document.getElementById('statusText');
+            
+            if (connected) {
+                dot.classList.add('connected');
+                text.textContent = 'Connected';
+            } else {
+                dot.classList.remove('connected');
+                text.textContent = 'Disconnected';
+            }
+        }
+
+        // Handle WebSocket Messages
+        function handleWebSocketMessage(data) {
+            switch(data.action) {
+                case 'messages':
+                    if (data.sessionId === currentSessionId) {
+                        messages = data.data || [];
+                        renderMessages();
+                    }
+                    break;
+                    
+                case 'newMessage':
+                    if (data.sessionId === currentSessionId && data.data) {
+                        const message = data.data;
+                        
+                        // If it's an agent message, hide typing indicator
+                        if (message.sender_type === 'AGENT') {
+                            hideTypingIndicator();
+                        }
+                        
+                        messages.push(message);
+                        renderMessages();
+                        scrollToBottom();
+                    }
+                    break;
+                    
+                case 'typing':
+                    // Show typing indicator when Claude starts processing
+                    if (data.sessionId === currentSessionId) {
+                        showTypingIndicator();
+                    }
+                    break;
+                    
+                case 'stopTyping':
+                    // Hide typing indicator when Claude stops processing
+                    if (data.sessionId === currentSessionId) {
+                        hideTypingIndicator();
+                    }
+                    break;
+            }
+        }
+
+        // Load Sessions
+        async function loadSessions() {
+            try {
+                const response = await fetch(`${API_BASE}/api/v1/terminal/sessions`);
+                if (response.ok) {
+                    sessions = await response.json();
+                    renderSessions();
+                }
+            } catch (error) {
+                console.error('Failed to load sessions:', error);
+                document.getElementById('sessionsList').innerHTML = 
+                    '<div style="color: #ef4444; text-align: center; padding: 1rem;">Failed to load sessions</div>';
+            }
+        }
+
+        // Render Sessions
+        function renderSessions() {
+            const container = document.getElementById('sessionsList');
+            
+            if (sessions.length === 0) {
+                container.innerHTML = '<div style="text-align: center; color: #9ca3af; padding: 1rem;">No sessions</div>';
+                return;
+            }
+
+            container.innerHTML = sessions.map(session => `
+                <div class="session ${session.id === currentSessionId ? 'active' : ''}" 
+                     onclick="selectSession('${session.id}')">
+                    <div class="session-name">
+                        <span class="tool-icon">${getToolIcon(session.tool)}</span>
+                        ${session.name || session.id}
+                    </div>
+                    <div class="session-info">
+                        ${session.tool} • ${session.status}
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        // Get Tool Icon
+        function getToolIcon(tool) {
+            const icons = {
+                'claude': '🤖',
+                'gemini': '✨',
+                'cursor': '💻',
+                'copilot': '🐙'
+            };
+            return icons[tool] || '📟';
+        }
+
+        // Select Session
+        async function selectSession(sessionId) {
+            // Reset typing state when switching sessions
+            hideTypingIndicator();
+            
+            currentSessionId = sessionId;
+            const session = sessions.find(s => s.id === sessionId);
+            
+            if (session) {
+                document.getElementById('emptyState').style.display = 'none';
+                document.getElementById('chatInterface').style.display = 'flex';
+                document.getElementById('chatTitle').innerHTML = `
+                    ${getToolIcon(session.tool)} ${session.tool} - ${session.name || session.id}
+                `;
+                
+                // Clear messages
+                messages = [];
+                document.getElementById('messagesContainer').innerHTML = '';
+                
+                // Subscribe to session
+                if (ws && ws.readyState === WebSocket.OPEN) {
+                    ws.send(JSON.stringify({ 
+                        action: 'subscribe', 
+                        sessionId: sessionId 
+                    }));
+                    
+                    ws.send(JSON.stringify({
+                        action: 'selectSession',
+                        sessionId: sessionId
+                    }));
+                }
+                
+                renderSessions();
+            }
+        }
+
+        // Render Messages
+        function renderMessages() {
+            const container = document.getElementById('messagesContainer');
+            
+            if (messages.length === 0 && !isTyping) {
+                container.innerHTML = '<div class="loading">No messages yet. Start the conversation!</div>';
+                return;
+            }
+
+            let html = messages.map(msg => {
+                const isAgent = msg.sender_type === 'AGENT';
+                const time = new Date(msg.created_at).toLocaleTimeString();
+                
+                return `
+                    <div class="message ${isAgent ? 'agent' : 'user'}">
+                        <div class="avatar">
+                            ${isAgent ? '🤖' : '👤'}
+                        </div>
+                        <div class="content">
+                            <div class="sender">
+                                ${isAgent ? 'AI Agent' : 'You'}
+                                <span class="time">${time}</span>
+                            </div>
+                            <div class="text">${formatMessage(msg.content)}</div>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+            
+            // Add typing indicator if Claude is typing
+            if (isTyping) {
+                html += `
+                    <div class="typing-indicator" id="typingIndicator">
+                        <div class="avatar">🤖</div>
+                        <div class="typing-content">
+                            <div class="typing-dots"></div>
+                        </div>
+                    </div>
+                `;
+            }
+            
+            container.innerHTML = html;
+            scrollToBottom();
+        }
+
+        // Format Message Content
+        function formatMessage(content) {
+            // Escape HTML
+            content = content.replace(/&/g, '&amp;')
+                           .replace(/</g, '&lt;')
+                           .replace(/>/g, '&gt;');
+            
+            // Code blocks
+            content = content.replace(/```([\s\S]*?)```/g, '<pre>$1</pre>');
+            
+            // Inline code
+            content = content.replace(/`([^`]+)`/g, '<code>$1</code>');
+            
+            // Line breaks
+            content = content.replace(/\n/g, '<br>');
+            
+            return content;
+        }
+
+        // Send Message
+        async function sendMessage() {
+            const input = document.getElementById('messageInput');
+            const message = input.value.trim();
+            
+            if (!message || !currentSessionId) return;
+
+            // Show loading state
+            const sendBtn = document.getElementById('sendBtn');
+            sendBtn.disabled = true;
+            sendBtn.classList.add('loading');
+            sendBtn.textContent = 'Sending...';
+
+            try {
+                if (ws && ws.readyState === WebSocket.OPEN) {
+                    ws.send(JSON.stringify({
+                        action: 'sendMessage',
+                        sessionId: currentSessionId,
+                        input: message
+                    }));
+                    
+                    input.value = '';
+                    autoResize(input);
+                    
+                    // Show typing indicator after a short delay
+                    showTypingIndicator();
+                }
+            } catch (error) {
+                console.error('Failed to send message:', error);
+                hideTypingIndicator();
+            } finally {
+                // Reset send button
+                setTimeout(() => {
+                    sendBtn.disabled = false;
+                    sendBtn.classList.remove('loading');
+                    sendBtn.textContent = 'Send';
+                }, 1000);
+            }
+        }
+
+        // Show Typing Indicator
+        function showTypingIndicator() {
+            if (!isTyping && currentSessionId) {
+                isTyping = true;
+                renderMessages();
+                
+                // Auto-hide after 30 seconds if no response
+                typingTimeout = setTimeout(() => {
+                    hideTypingIndicator();
+                }, 30000);
+            }
+        }
+
+        // Hide Typing Indicator
+        function hideTypingIndicator() {
+            if (isTyping) {
+                isTyping = false;
+                if (typingTimeout) {
+                    clearTimeout(typingTimeout);
+                    typingTimeout = null;
+                }
+                renderMessages();
+            }
+        }
+
+        // Handle Key Press
+        function handleKeyPress(event) {
+            if (event.key === 'Enter' && !event.shiftKey && !isComposing) {
+                event.preventDefault();
+                sendMessage();
+            }
+        }
+
+        // Handle IME Composition Events
+        function handleCompositionStart(event) {
+            isComposing = true;
+        }
+
+        function handleCompositionEnd(event) {
+            isComposing = false;
+        }
+
+        // Auto Resize Textarea
+        function autoResize(textarea) {
+            textarea.style.height = 'auto';
+            textarea.style.height = Math.min(textarea.scrollHeight, 100) + 'px';
+        }
+
+        // Create New Session
+        async function createNewSession() {
+            const tool = 'claude';
+            const name = `claude-${Date.now()}`;
+
+            try {
+                const response = await fetch(`${API_BASE}/api/v1/terminal/sessions`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ tool, name })
+                });
+
+                if (response.ok) {
+                    const session = await response.json();
+                    await loadSessions();
+                    selectSession(session.id);
+                }
+            } catch (error) {
+                console.error('Failed to create session:', error);
+            }
+        }
+
+        // Scroll to Bottom
+        function scrollToBottom() {
+            const container = document.getElementById('messagesContainer');
+            container.scrollTop = container.scrollHeight;
+        }
+    </script>
+</body>
+</html>

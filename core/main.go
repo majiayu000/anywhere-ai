@@ -40,6 +40,7 @@ func main() {
 	router.Static("/static", "../web")
 	router.StaticFile("/", "../web/index.html")
 	router.StaticFile("/chat", "../web/chat.html")
+	router.StaticFile("/simple", "../web/simple-chat.html")
 
 	// Health check endpoint
 	router.GET("/health", func(c *gin.Context) {
@@ -58,7 +59,7 @@ func main() {
 	wsService := services.NewTerminalWebSocketService(tmuxManager, messageService)
 	claudeMonitor := services.NewClaudeMonitor(tmuxManager, messageService, wsService)
 	jsonlMonitor := services.NewJSONLMonitor(messageService, wsService)
-	apiService := services.NewTerminalAPIService(tmuxManager, wsService, claudeMonitor, jsonlMonitor)
+	apiService := services.NewTerminalAPIService(tmuxManager, wsService, claudeMonitor, jsonlMonitor, messageService)
 
 	// Register routes
 	apiService.RegisterRoutes(router)

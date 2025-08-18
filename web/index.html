@@ -1,9 +1,9 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="zh-CN">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Anywhere AI - Terminal Manager</title>
+    <title>Anywhere AI Chat</title>
     <style>
         * {
             margin: 0;
@@ -12,379 +12,525 @@
         }
 
         body {
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            min-height: 100vh;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: #f8fafc;
+            height: 100vh;
             display: flex;
             flex-direction: column;
         }
 
+        /* Header */
         .header {
-            background: rgba(255, 255, 255, 0.95);
-            padding: 1rem 2rem;
-            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+            background: white;
+            padding: 1rem;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
         }
 
-        .header h1 {
-            color: #333;
-            font-size: 1.5rem;
+        .title {
+            font-size: 1.3rem;
+            font-weight: 600;
+            color: #1f2937;
         }
 
+        .status {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            font-size: 0.9rem;
+        }
+
+        .status-dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background: #ef4444;
+        }
+
+        .status-dot.connected {
+            background: #10b981;
+            animation: pulse 2s infinite;
+        }
+
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
+        }
+
+        /* Main Container */
         .container {
             flex: 1;
             display: flex;
-            padding: 2rem;
-            gap: 2rem;
-            max-width: 1400px;
-            margin: 0 auto;
-            width: 100%;
+            overflow: hidden;
         }
 
+        /* Sidebar */
         .sidebar {
-            background: rgba(255, 255, 255, 0.95);
-            border-radius: 10px;
-            padding: 1.5rem;
-            width: 300px;
-            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
+            width: 260px;
+            background: white;
+            border-right: 1px solid #e5e7eb;
+            display: flex;
+            flex-direction: column;
         }
 
-        .sidebar h2 {
-            color: #333;
-            margin-bottom: 1rem;
-            font-size: 1.2rem;
-        }
-
-        .session-list {
-            list-style: none;
-        }
-
-        .session-item {
-            background: #f7f7f7;
-            border-radius: 5px;
-            padding: 0.8rem;
-            margin-bottom: 0.5rem;
-            cursor: pointer;
-            transition: all 0.3s ease;
-        }
-
-        .session-item:hover {
-            background: #e9e9e9;
-            transform: translateX(5px);
-        }
-
-        .session-item.active {
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        .new-session {
+            margin: 1rem;
+            padding: 0.75rem;
+            background: #3b82f6;
             color: white;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            font-weight: 500;
+            transition: background 0.2s;
         }
 
-        .session-tool {
-            font-weight: bold;
+        .new-session:hover {
+            background: #2563eb;
+        }
+
+        .sessions {
+            flex: 1;
+            overflow-y: auto;
+            padding: 0 1rem;
+        }
+
+        .session {
+            padding: 0.75rem;
+            margin-bottom: 0.5rem;
+            border-radius: 6px;
+            cursor: pointer;
+            border: 1px solid transparent;
+            transition: background 0.2s;
+        }
+
+        .session:hover {
+            background: #f9fafb;
+        }
+
+        .session.active {
+            background: #eff6ff;
+            border-color: #3b82f6;
+        }
+
+        .session-name {
+            font-weight: 500;
             margin-bottom: 0.25rem;
         }
 
         .session-info {
-            font-size: 0.85rem;
-            opacity: 0.8;
+            font-size: 0.8rem;
+            color: #6b7280;
         }
 
-        .new-session-btn {
-            width: 100%;
-            padding: 0.8rem;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            color: white;
-            border: none;
-            border-radius: 5px;
-            font-size: 1rem;
-            cursor: pointer;
-            margin-bottom: 1rem;
-            transition: transform 0.2s;
-        }
-
-        .new-session-btn:hover {
-            transform: translateY(-2px);
-        }
-
-        .main-content {
+        /* Chat Area */
+        .chat {
             flex: 1;
-            background: rgba(255, 255, 255, 0.95);
-            border-radius: 10px;
-            padding: 1.5rem;
-            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
             display: flex;
             flex-direction: column;
+            background: white;
+            min-height: 0;
+            overflow: hidden;
         }
 
-        .terminal-header {
+        .chat-header {
+            padding: 1rem;
+            border-bottom: 1px solid #e5e7eb;
+            font-weight: 600;
             display: flex;
             justify-content: space-between;
             align-items: center;
-            margin-bottom: 1rem;
-            padding-bottom: 1rem;
-            border-bottom: 2px solid #f0f0f0;
         }
 
-        .terminal-title {
-            font-size: 1.1rem;
-            color: #333;
-        }
-
-        .terminal-actions {
-            display: flex;
-            gap: 0.5rem;
-        }
-
-        .terminal-btn {
+        .clear-btn {
             padding: 0.5rem 1rem;
-            background: #f0f0f0;
-            border: none;
-            border-radius: 5px;
+            background: #f3f4f6;
+            border: 1px solid #e5e7eb;
+            border-radius: 4px;
+            color: #6b7280;
             cursor: pointer;
-            transition: background 0.2s;
+            font-size: 0.875rem;
         }
 
-        .terminal-btn:hover {
-            background: #e0e0e0;
+        .clear-btn:hover {
+            background: #e5e7eb;
         }
 
-        .terminal-btn.danger {
-            background: #ff4757;
+        .messages {
+            flex: 1;
+            overflow-y: auto;
+            overflow-x: hidden;
+            padding: 1rem;
+            display: flex;
+            flex-direction: column;
+            gap: 1rem;
+            max-height: calc(100vh - 200px);
+            min-height: 200px;
+            scroll-behavior: smooth;
+            /* 确保滚动条可见 */
+            scrollbar-width: thin;
+        }
+
+        /* 自定义滚动条样式 */
+        .messages::-webkit-scrollbar {
+            width: 6px;
+        }
+
+        .messages::-webkit-scrollbar-track {
+            background: #f1f1f1;
+            border-radius: 3px;
+        }
+
+        .messages::-webkit-scrollbar-thumb {
+            background: #c1c1c1;
+            border-radius: 3px;
+        }
+
+        .messages::-webkit-scrollbar-thumb:hover {
+            background: #a1a1a1;
+        }
+
+        .message {
+            display: flex;
+            gap: 0.75rem;
+            animation: fadeIn 0.3s ease;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        .avatar {
+            width: 32px;
+            height: 32px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 0.875rem;
+            flex-shrink: 0;
+        }
+
+        .message.user .avatar {
+            background: #10b981;
             color: white;
         }
 
-        .terminal-btn.danger:hover {
-            background: #ff3838;
+        .message.agent .avatar {
+            background: #3b82f6;
+            color: white;
         }
 
-        .terminal-container {
+        .content {
             flex: 1;
-            background: #1e1e1e;
-            border-radius: 5px;
-            padding: 1rem;
-            overflow-y: auto;
-            font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
-            font-size: 14px;
-            line-height: 1.5;
-            color: #d4d4d4;
-            min-height: 400px;
         }
 
-        .terminal-line {
-            margin-bottom: 2px;
-            white-space: pre-wrap;
+        .sender {
+            font-weight: 600;
+            margin-bottom: 0.25rem;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .time {
+            font-size: 0.75rem;
+            color: #9ca3af;
+        }
+
+        .text {
+            line-height: 1.5;
+            color: #374151;
             word-wrap: break-word;
         }
 
-        .input-container {
-            margin-top: 1rem;
+        .text pre {
+            background: #f3f4f6;
+            border: 1px solid #e5e7eb;
+            border-radius: 4px;
+            padding: 0.5rem;
+            overflow-x: auto;
+            margin: 0.5rem 0;
+            font-family: 'Monaco', 'Consolas', monospace;
+            font-size: 0.875rem;
+        }
+
+        .text code {
+            background: #f3f4f6;
+            padding: 0.125rem 0.25rem;
+            border-radius: 3px;
+            font-family: 'Monaco', 'Consolas', monospace;
+            font-size: 0.875rem;
+        }
+
+        /* Typing Animation */
+        .typing-indicator {
             display: flex;
+            gap: 0.75rem;
+            padding: 0.5rem 0;
+            animation: fadeIn 0.3s ease;
+        }
+
+        .typing-indicator .avatar {
+            background: #3b82f6;
+            color: white;
+        }
+
+        .typing-dots {
+            display: flex;
+            align-items: center;
             gap: 0.5rem;
+            padding: 0.75rem 1rem;
+            background: #f3f4f6;
+            border-radius: 1rem;
+            max-width: 150px;
         }
 
-        .terminal-input {
+        .typing-dots::before {
+            content: "🤖 Claude 思考中";
+            font-size: 0.875rem;
+            color: #6b7280;
+        }
+
+        .typing-dots::after {
+            content: "...";
+            animation: typing 1.5s infinite;
+            font-weight: bold;
+            color: #3b82f6;
+        }
+
+        @keyframes typing {
+            0%, 20% { content: ""; }
+            40% { content: "."; }
+            60% { content: ".."; }
+            80%, 100% { content: "..."; }
+        }
+
+        /* Input Area */
+        .input-area {
+            padding: 1rem;
+            border-top: 1px solid #e5e7eb;
+            background: white;
+        }
+
+        .input-wrapper {
+            display: flex;
+            gap: 0.75rem;
+            align-items: flex-end;
+        }
+
+        .input-box {
             flex: 1;
-            padding: 0.8rem;
-            background: #f7f7f7;
-            border: 2px solid #e0e0e0;
-            border-radius: 5px;
-            font-size: 1rem;
-            font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
+            background: #f9fafb;
+            border: 1px solid #e5e7eb;
+            border-radius: 6px;
+            padding: 0.75rem;
+            transition: border-color 0.2s;
         }
 
-        .terminal-input:focus {
+        .input-box:focus-within {
+            border-color: #3b82f6;
+            background: white;
+        }
+
+        .message-input {
+            width: 100%;
+            background: transparent;
+            border: none;
             outline: none;
-            border-color: #667eea;
+            resize: none;
+            font-family: inherit;
+            min-height: 20px;
+            max-height: 100px;
         }
 
         .send-btn {
-            padding: 0.8rem 1.5rem;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            padding: 0.75rem 1.5rem;
+            background: #3b82f6;
             color: white;
             border: none;
-            border-radius: 5px;
+            border-radius: 6px;
             cursor: pointer;
-            font-size: 1rem;
-            transition: transform 0.2s;
+            font-weight: 500;
+            transition: background 0.2s;
         }
 
-        .send-btn:hover {
-            transform: translateY(-2px);
+        .send-btn:hover:not(:disabled) {
+            background: #2563eb;
         }
 
-        .status-indicator {
-            display: inline-block;
-            width: 10px;
-            height: 10px;
-            border-radius: 50%;
-            margin-left: 0.5rem;
+        .send-btn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
         }
 
-        .status-indicator.connected {
-            background: #2ecc71;
-            animation: pulse 2s infinite;
+        .send-btn.loading {
+            background: #9ca3af;
+            position: relative;
+            overflow: hidden;
         }
 
-        .status-indicator.disconnected {
-            background: #e74c3c;
-        }
-
-        @keyframes pulse {
-            0% { opacity: 1; }
-            50% { opacity: 0.5; }
-            100% { opacity: 1; }
-        }
-
-        .empty-state {
-            text-align: center;
-            padding: 3rem;
-            color: #999;
-        }
-
-        .empty-state h3 {
-            margin-bottom: 1rem;
-            color: #666;
-        }
-
-        .modal {
-            display: none;
-            position: fixed;
+        .send-btn.loading::before {
+            content: "";
+            position: absolute;
             top: 0;
-            left: 0;
+            left: -100%;
             width: 100%;
             height: 100%;
-            background: rgba(0, 0, 0, 0.5);
-            justify-content: center;
+            background: linear-gradient(90deg, transparent, rgba(255,255,255,0.2), transparent);
+            animation: loading-shimmer 1.5s infinite;
+        }
+
+        @keyframes loading-shimmer {
+            0% { left: -100%; }
+            100% { left: 100%; }
+        }
+
+        /* Empty State */
+        .empty {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
             align-items: center;
+            justify-content: center;
+            color: #9ca3af;
+        }
+
+        .empty h3 {
+            margin-bottom: 0.5rem;
+            color: #4b5563;
+        }
+
+        /* Loading */
+        .loading {
+            text-align: center;
+            color: #9ca3af;
+            font-style: italic;
+            padding: 2rem;
+        }
+
+        /* Command Autocomplete */
+        .autocomplete-container {
+            position: relative;
+        }
+
+        .autocomplete-dropdown {
+            position: absolute;
+            bottom: 100%;
+            left: 0;
+            right: 0;
+            background: white;
+            border: 1px solid #e5e7eb;
+            border-radius: 6px 6px 0 0;
+            box-shadow: 0 -4px 12px rgba(0, 0, 0, 0.1);
+            max-height: 200px;
+            overflow-y: auto;
+            display: none;
             z-index: 1000;
         }
 
-        .modal.show {
-            display: flex;
-        }
-
-        .modal-content {
-            background: white;
-            padding: 2rem;
-            border-radius: 10px;
-            width: 400px;
-            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.2);
-        }
-
-        .modal-header {
-            margin-bottom: 1.5rem;
-        }
-
-        .modal-header h2 {
-            color: #333;
-        }
-
-        .form-group {
-            margin-bottom: 1rem;
-        }
-
-        .form-group label {
+        .autocomplete-dropdown.show {
             display: block;
-            margin-bottom: 0.5rem;
-            color: #666;
         }
 
-        .form-group select,
-        .form-group input {
-            width: 100%;
-            padding: 0.8rem;
-            border: 2px solid #e0e0e0;
-            border-radius: 5px;
-            font-size: 1rem;
-        }
-
-        .modal-actions {
-            display: flex;
-            gap: 1rem;
-            margin-top: 1.5rem;
-        }
-
-        .modal-actions button {
-            flex: 1;
-            padding: 0.8rem;
-            border: none;
-            border-radius: 5px;
+        .autocomplete-item {
+            padding: 0.75rem;
             cursor: pointer;
-            font-size: 1rem;
+            border-bottom: 1px solid #f3f4f6;
+            transition: background 0.2s;
         }
 
-        .modal-actions .create-btn {
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            color: white;
+        .autocomplete-item:last-child {
+            border-bottom: none;
         }
 
-        .modal-actions .cancel-btn {
-            background: #f0f0f0;
+        .autocomplete-item:hover,
+        .autocomplete-item.selected {
+            background: #eff6ff;
+        }
+
+        .autocomplete-command {
+            font-weight: 600;
+            color: #3b82f6;
+            font-family: 'Monaco', 'Consolas', monospace;
+        }
+
+        .autocomplete-description {
+            font-size: 0.875rem;
+            color: #6b7280;
+            margin-top: 0.25rem;
         }
     </style>
 </head>
 <body>
     <div class="header">
-        <h1>🚀 Anywhere AI Terminal Manager <span class="status-indicator disconnected" id="wsStatus"></span></h1>
+        <div class="title">🤖 Anywhere AI Chat</div>
+        <div class="status">
+            <div class="status-dot" id="statusDot"></div>
+            <span id="statusText">连接中...</span>
+        </div>
     </div>
 
     <div class="container">
+        <!-- Sidebar -->
         <div class="sidebar">
-            <button class="new-session-btn" onclick="showNewSessionModal()">+ New Session</button>
-            <h2>Sessions</h2>
-            <ul class="session-list" id="sessionList">
-                <!-- Sessions will be populated here -->
-            </ul>
+            <button class="new-session" onclick="createNewSession()">
+                ✨ 新建会话
+            </button>
+            <div class="sessions" id="sessionsList">
+                <div class="loading">加载中...</div>
+            </div>
         </div>
 
-        <div class="main-content">
-            <div id="emptyState" class="empty-state">
-                <h3>No Session Selected</h3>
-                <p>Select a session from the sidebar or create a new one to get started.</p>
+        <!-- Chat Area -->
+        <div class="chat">
+            <!-- Empty State -->
+            <div class="empty" id="emptyState">
+                <h3>💬 请选择或创建会话</h3>
+                <p>从左侧选择一个会话或创建新会话开始对话</p>
             </div>
 
-            <div id="terminalView" style="display: none; flex: 1; display: flex; flex-direction: column;">
-                <div class="terminal-header">
-                    <div class="terminal-title" id="terminalTitle">Terminal</div>
-                    <div class="terminal-actions">
-                        <button class="terminal-btn" onclick="clearTerminal()">Clear</button>
-                        <button class="terminal-btn" onclick="refreshSession()">Refresh</button>
-                        <button class="terminal-btn danger" onclick="killSession()">Kill</button>
+            <!-- Chat Interface -->
+            <div id="chatInterface" style="display: none; flex: 1; flex-direction: column; height: 100%; overflow: hidden;">
+                <div class="chat-header">
+                    <span id="chatTitle">Claude 会话</span>
+                    <div style="display: flex; gap: 0.5rem;">
+                        <button class="clear-btn" onclick="forceScrollToBottom()">滚动到底部</button>
+                        <button class="clear-btn" onclick="clearMessages()">清空消息</button>
                     </div>
                 </div>
 
-                <div class="terminal-container" id="terminal">
-                    <!-- Terminal output will appear here -->
+                <div class="messages" id="messagesContainer">
+                    <!-- Messages will appear here -->
                 </div>
 
-                <div class="input-container">
-                    <input type="text" class="terminal-input" id="commandInput" placeholder="Type command..." onkeypress="handleInputKeypress(event)">
-                    <button class="send-btn" onclick="sendCommand()">Send</button>
+                <div class="input-area">
+                    <div class="input-wrapper">
+                        <div class="input-box autocomplete-container">
+                            <!-- Autocomplete Dropdown -->
+                            <div class="autocomplete-dropdown" id="autocompleteDropdown">
+                                <!-- Autocomplete items will appear here -->
+                            </div>
+                            
+                            <textarea 
+                                class="message-input" 
+                                id="messageInput" 
+                                placeholder="输入您的消息... (输入 / 查看命令)"
+                                onkeydown="handleKeyPress(event)"
+                                oninput="autoResize(this); handleInput(event)"
+                                oncompositionstart="handleCompositionStart(event)"
+                                oncompositionend="handleCompositionEnd(event)"
+                                oncompositionupdate="isComposing = true"
+                            ></textarea>
+                        </div>
+                        <button class="send-btn" onclick="sendMessage()" id="sendBtn">
+                            发送
+                        </button>
+                    </div>
                 </div>
-            </div>
-        </div>
-    </div>
-
-    <!-- New Session Modal -->
-    <div class="modal" id="newSessionModal">
-        <div class="modal-content">
-            <div class="modal-header">
-                <h2>Create New Session</h2>
-            </div>
-            <div class="form-group">
-                <label>AI Tool</label>
-                <select id="toolSelect">
-                    <option value="claude">Claude Code</option>
-                    <option value="gemini">Gemini CLI</option>
-                    <option value="cursor">Cursor</option>
-                    <option value="copilot">GitHub Copilot</option>
-                </select>
-            </div>
-            <div class="form-group">
-                <label>Session Name</label>
-                <input type="text" id="sessionName" placeholder="my-session">
-            </div>
-            <div class="modal-actions">
-                <button class="cancel-btn" onclick="hideNewSessionModal()">Cancel</button>
-                <button class="create-btn" onclick="createSession()">Create</button>
             </div>
         </div>
     </div>
@@ -394,42 +540,110 @@
         let ws = null;
         let currentSessionId = null;
         let sessions = [];
+        let messages = [];
+        let isTyping = false;
+        let typingTimeout = null;
+        let isComposing = false; // IME 输入状态
+        let lastCompositionEnd = 0; // 最后一次composition结束时间
 
         // Initialize
         document.addEventListener('DOMContentLoaded', () => {
             loadSessions();
             connectWebSocket();
+            loadClaudeCommands(); // 加载最新的Claude命令列表
+            
+            // 点击其他地方隐藏自动补全
+            document.addEventListener('click', (event) => {
+                const dropdown = document.getElementById('autocompleteDropdown');
+                const inputArea = document.querySelector('.input-area');
+                
+                if (dropdown.classList.contains('show') && 
+                    !inputArea.contains(event.target)) {
+                    hideAutocomplete();
+                }
+            });
         });
 
-        // WebSocket connection
+        // WebSocket Connection
         function connectWebSocket() {
             ws = new WebSocket(`ws://localhost:8080/api/v1/ws`);
             
             ws.onopen = () => {
-                console.log('WebSocket connected');
-                document.getElementById('wsStatus').className = 'status-indicator connected';
+                console.log('WebSocket连接成功');
+                updateStatus(true, '已连接');
             };
 
             ws.onmessage = (event) => {
                 const data = JSON.parse(event.data);
-                if (data.sessionId === currentSessionId && data.output) {
-                    appendToTerminal(data.output);
-                }
+                handleWebSocketMessage(data);
             };
 
             ws.onclose = () => {
-                console.log('WebSocket disconnected');
-                document.getElementById('wsStatus').className = 'status-indicator disconnected';
-                // Reconnect after 3 seconds
+                console.log('WebSocket连接断开');
+                updateStatus(false, '连接断开');
                 setTimeout(connectWebSocket, 3000);
             };
 
             ws.onerror = (error) => {
-                console.error('WebSocket error:', error);
+                console.error('WebSocket错误:', error);
+                updateStatus(false, '连接错误');
             };
         }
 
-        // Load sessions
+        // Update Connection Status
+        function updateStatus(connected, text) {
+            const dot = document.getElementById('statusDot');
+            const statusText = document.getElementById('statusText');
+            
+            if (connected) {
+                dot.classList.add('connected');
+                statusText.textContent = text || '已连接';
+            } else {
+                dot.classList.remove('connected');
+                statusText.textContent = text || '未连接';
+            }
+        }
+
+        // Handle WebSocket Messages
+        function handleWebSocketMessage(data) {
+            switch(data.action) {
+                case 'messages':
+                    if (data.sessionId === currentSessionId) {
+                        messages = data.data || [];
+                        renderMessages();
+                    }
+                    break;
+                    
+                case 'newMessage':
+                    if (data.sessionId === currentSessionId && data.data) {
+                        const message = data.data;
+                        
+                        // 收到Agent消息时隐藏输入动画
+                        if (message.sender_type === 'AGENT') {
+                            hideTypingIndicator();
+                        }
+                        
+                        messages.push(message);
+                        renderMessages();
+                        scrollToBottom();
+                    }
+                    break;
+                    
+                case 'typing':
+                    if (data.sessionId === currentSessionId) {
+                        showTypingIndicator();
+                    }
+                    break;
+                    
+                case 'stopTyping':
+                    if (data.sessionId === currentSessionId) {
+                        hideTypingIndicator();
+                    }
+                    break;
+            }
+        }
+
+        // Load Sessions
         async function loadSessions() {
             try {
                 const response = await fetch(`${API_BASE}/api/v1/terminal/sessions`);
@@ -438,194 +652,540 @@
                     renderSessions();
                 }
             } catch (error) {
-                console.error('Failed to load sessions:', error);
+                console.error('加载会话失败:', error);
+                document.getElementById('sessionsList').innerHTML = 
+                    '<div style="color: #ef4444; text-align: center; padding: 1rem;">加载失败</div>';
             }
         }
 
-        // Render sessions in sidebar
+        // Render Sessions
         function renderSessions() {
-            const sessionList = document.getElementById('sessionList');
-            sessionList.innerHTML = '';
-
+            const container = document.getElementById('sessionsList');
+            
             if (sessions.length === 0) {
-                sessionList.innerHTML = '<li style="padding: 1rem; color: #999;">No sessions</li>';
+                container.innerHTML = '<div style="text-align: center; color: #9ca3af; padding: 1rem;">暂无会话</div>';
                 return;
             }
 
-            sessions.forEach(session => {
-                const li = document.createElement('li');
-                li.className = `session-item ${session.id === currentSessionId ? 'active' : ''}`;
-                li.onclick = () => selectSession(session.id);
-                li.innerHTML = `
-                    <div class="session-tool">${getToolIcon(session.tool)} ${session.tool}</div>
-                    <div class="session-info">${session.name || session.id}</div>
-                    <div class="session-info">Status: ${session.status}</div>
-                `;
-                sessionList.appendChild(li);
-            });
+            container.innerHTML = sessions.map(session => `
+                <div class="session ${session.id === currentSessionId ? 'active' : ''}" 
+                     onclick="selectSession('${session.id}')">
+                    <div class="session-name">
+                        🤖 ${session.name || session.id}
+                    </div>
+                    <div class="session-info">
+                        ${session.tool} • ${session.status === 'active' ? '运行中' : '已停止'}
+                    </div>
+                </div>
+            `).join('');
         }
 
-        // Get tool icon
-        function getToolIcon(tool) {
-            const icons = {
-                'claude': '🤖',
-                'gemini': '✨',
-                'cursor': '💻',
-                'copilot': '🐙'
-            };
-            return icons[tool] || '📟';
-        }
-
-        // Select session
+        // Select Session
         async function selectSession(sessionId) {
+            // 重置输入状态
+            hideTypingIndicator();
+            
             currentSessionId = sessionId;
             const session = sessions.find(s => s.id === sessionId);
             
             if (session) {
                 document.getElementById('emptyState').style.display = 'none';
-                document.getElementById('terminalView').style.display = 'flex';
-                document.getElementById('terminalTitle').textContent = `${session.tool} - ${session.name || session.id}`;
+                document.getElementById('chatInterface').style.display = 'flex';
+                document.getElementById('chatTitle').textContent = `🤖 ${session.name || session.id}`;
                 
-                // Clear terminal and load output
-                document.getElementById('terminal').innerHTML = '';
-                await loadSessionOutput(sessionId);
+                // 清空消息
+                messages = [];
+                document.getElementById('messagesContainer').innerHTML = '';
                 
-                // Update active state in sidebar
-                renderSessions();
-
-                // Subscribe to session updates via WebSocket
+                // 订阅会话
                 if (ws && ws.readyState === WebSocket.OPEN) {
-                    ws.send(JSON.stringify({ action: 'subscribe', sessionId: sessionId }));
+                    ws.send(JSON.stringify({ 
+                        action: 'subscribe', 
+                        sessionId: sessionId 
+                    }));
+                    
+                    ws.send(JSON.stringify({
+                        action: 'selectSession',
+                        sessionId: sessionId
+                    }));
                 }
+                
+                renderSessions();
             }
         }
 
-        // Load session output
-        async function loadSessionOutput(sessionId) {
+        // Render Messages
+        function renderMessages() {
+            const container = document.getElementById('messagesContainer');
+            
+            if (messages.length === 0 && !isTyping) {
+                container.innerHTML = '<div class="loading">暂无消息，开始对话吧！</div>';
+                return;
+            }
+
+            let html = messages.map(msg => {
+                const isAgent = msg.sender_type === 'AGENT';
+                const time = new Date(msg.created_at).toLocaleTimeString();
+                
+                return `
+                    <div class="message ${isAgent ? 'agent' : 'user'}">
+                        <div class="avatar">
+                            ${isAgent ? '🤖' : '👤'}
+                        </div>
+                        <div class="content">
+                            <div class="sender">
+                                ${isAgent ? 'Claude' : '我'}
+                                <span class="time">${time}</span>
+                            </div>
+                            <div class="text">${formatMessage(msg.content)}</div>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+            
+            // 添加输入动画
+            if (isTyping) {
+                html += `
+                    <div class="typing-indicator">
+                        <div class="avatar">🤖</div>
+                        <div class="typing-dots"></div>
+                    </div>
+                `;
+            }
+            
+            container.innerHTML = html;
+            // 延迟滚动确保DOM已更新
+            setTimeout(() => scrollToBottom(), 50);
+        }
+
+        // Format Message Content
+        function formatMessage(content) {
+            // HTML转义
+            content = content.replace(/&/g, '&amp;')
+                           .replace(/</g, '&lt;')
+                           .replace(/>/g, '&gt;');
+            
+            // 代码块
+            content = content.replace(/```([\s\S]*?)```/g, '<pre>$1</pre>');
+            
+            // 行内代码
+            content = content.replace(/`([^`]+)`/g, '<code>$1</code>');
+            
+            // 换行
+            content = content.replace(/\n/g, '<br>');
+            
+            return content;
+        }
+
+        // Send Message
+        async function sendMessage() {
+            const input = document.getElementById('messageInput');
+            const message = input.value.trim();
+            
+            if (!message || !currentSessionId || isComposing) return;
+
+            // 显示加载状态
+            const sendBtn = document.getElementById('sendBtn');
+            sendBtn.disabled = true;
+            sendBtn.classList.add('loading');
+            sendBtn.textContent = '发送中...';
+
             try {
-                const response = await fetch(`${API_BASE}/api/v1/terminal/sessions/${sessionId}/output`);
+                if (ws && ws.readyState === WebSocket.OPEN) {
+                    ws.send(JSON.stringify({
+                        action: 'sendMessage',
+                        sessionId: currentSessionId,
+                        input: message
+                    }));
+                    
+                    input.value = '';
+                    autoResize(input);
+                    
+                    // 显示输入动画
+                    showTypingIndicator();
+                }
+            } catch (error) {
+                console.error('发送消息失败:', error);
+                hideTypingIndicator();
+            } finally {
+                // 重置发送按钮
+                setTimeout(() => {
+                    sendBtn.disabled = false;
+                    sendBtn.classList.remove('loading');
+                    sendBtn.textContent = '发送';
+                }, 1000);
+            }
+        }
+
+        // Show/Hide Typing Indicator
+        function showTypingIndicator() {
+            if (!isTyping && currentSessionId) {
+                isTyping = true;
+                renderMessages();
+                
+                // 30秒后自动隐藏
+                typingTimeout = setTimeout(() => {
+                    hideTypingIndicator();
+                }, 30000);
+            }
+        }
+
+        function hideTypingIndicator() {
+            if (isTyping) {
+                isTyping = false;
+                if (typingTimeout) {
+                    clearTimeout(typingTimeout);
+                    typingTimeout = null;
+                }
+                renderMessages();
+            }
+        }
+
+        // Handle Key Press & IME - 重新设计
+        function handleKeyPress(event) {
+            // 首先处理自动补全导航
+            if (handleAutocompleteNavigation(event)) {
+                return; // 如果处理了自动补全导航，直接返回
+            }
+
+            // 关键：只有在确认不是输入法状态时才处理Enter
+            if (event.key === 'Enter' && !event.shiftKey) {
+                // 如果正在输入法组合中，完全不处理，让输入法自己处理
+                if (isComposing) {
+                    console.log('在输入法组合中，让输入法处理Enter键');
+                    return; // 不调用 preventDefault，让输入法选词
+                }
+                
+                // 刚结束输入法选词后的短暂时间内也不处理
+                const now = Date.now();
+                if (now - lastCompositionEnd < 150) {
+                    console.log('刚结束输入法，等待一下');
+                    return;
+                }
+                
+                // 只有在非输入法状态下才发送消息
+                console.log('发送消息');
+                event.preventDefault();
+                sendMessage();
+            }
+        }
+
+        function handleCompositionStart(event) {
+            console.log('🎌 输入法开始:', event.data);
+            isComposing = true;
+        }
+
+        function handleCompositionEnd(event) {
+            console.log('🎌 输入法结束:', event.data);
+            isComposing = false;
+            lastCompositionEnd = Date.now();
+        }
+
+        // Command autocomplete data - 从官方文档动态获取
+        let claudeCommands = [
+            // 默认命令，当网络请求失败时使用
+            { command: '/help', description: '获取使用帮助' },
+            { command: '/clear', description: '清空对话历史' },
+            { command: '/status', description: '查看账户和系统状态' },
+            { command: '/model', description: '选择或更改AI模型' }
+        ];
+
+        // 从官方文档获取最新命令列表
+        async function loadClaudeCommands() {
+            try {
+                // 尝试通过后端代理获取命令列表
+                const response = await fetch(`${API_BASE}/api/v1/claude-commands`);
+                
                 if (response.ok) {
                     const data = await response.json();
-                    if (data.output) {
-                        appendToTerminal(data.output);
+                    if (data.commands && data.commands.length > 0) {
+                        claudeCommands = data.commands.map(cmd => ({
+                            command: cmd.command,
+                            description: translateDescription(cmd.description)
+                        }));
+                        console.log(`✅ 通过后端代理成功加载 ${claudeCommands.length} 个Claude命令`);
+                        return;
                     }
                 }
+                
+                // 如果后端代理失败，使用备用完整列表
+                claudeCommands = [
+                    { command: '/add-dir', description: '添加额外的工作目录' },
+                    { command: '/agents', description: '管理专用任务的自定义AI子代理' },
+                    { command: '/bug', description: '报告错误（发送对话到Anthropic）' },
+                    { command: '/clear', description: '清空对话历史' },
+                    { command: '/compact', description: '压缩对话，可选聚焦指令' },
+                    { command: '/config', description: '查看/修改配置' },
+                    { command: '/cost', description: '显示token使用统计' },
+                    { command: '/doctor', description: '检查Claude Code安装健康状态' },
+                    { command: '/help', description: '获取使用帮助' },
+                    { command: '/init', description: '使用CLAUDE.md指南初始化项目' },
+                    { command: '/login', description: '切换Anthropic账户' },
+                    { command: '/logout', description: '退出Anthropic账户' },
+                    { command: '/mcp', description: '管理MCP服务器连接和OAuth认证' },
+                    { command: '/memory', description: '编辑CLAUDE.md记忆文件' },
+                    { command: '/model', description: '选择或更改AI模型' },
+                    { command: '/permissions', description: '查看或更新权限' },
+                    { command: '/pr_comments', description: '查看拉取请求评论' },
+                    { command: '/review', description: '请求代码审查' },
+                    { command: '/status', description: '查看账户和系统状态' },
+                    { command: '/terminal-setup', description: '安装Shift+Enter换行键绑定' },
+                    { command: '/vim', description: '进入vim模式，交替插入和命令模式' }
+                ];
+                console.log('📋 使用内置完整命令列表');
+                
             } catch (error) {
-                console.error('Failed to load session output:', error);
+                console.error('❌ 获取Claude命令失败:', error);
+                // 网络错误时使用备用命令列表
+                claudeCommands = [
+                    { command: '/add-dir', description: '添加额外的工作目录' },
+                    { command: '/agents', description: '管理专用任务的自定义AI子代理' },
+                    { command: '/bug', description: '报告错误（发送对话到Anthropic）' },
+                    { command: '/clear', description: '清空对话历史' },
+                    { command: '/compact', description: '压缩对话，可选聚焦指令' },
+                    { command: '/config', description: '查看/修改配置' },
+                    { command: '/cost', description: '显示token使用统计' },
+                    { command: '/doctor', description: '检查Claude Code安装健康状态' },
+                    { command: '/help', description: '获取使用帮助' },
+                    { command: '/init', description: '使用CLAUDE.md指南初始化项目' },
+                    { command: '/login', description: '切换Anthropic账户' },
+                    { command: '/logout', description: '退出Anthropic账户' },
+                    { command: '/mcp', description: '管理MCP服务器连接和OAuth认证' },
+                    { command: '/memory', description: '编辑CLAUDE.md记忆文件' },
+                    { command: '/model', description: '选择或更改AI模型' },
+                    { command: '/permissions', description: '查看或更新权限' },
+                    { command: '/pr_comments', description: '查看拉取请求评论' },
+                    { command: '/review', description: '请求代码审查' },
+                    { command: '/status', description: '查看账户和系统状态' },
+                    { command: '/terminal-setup', description: '安装Shift+Enter换行键绑定' },
+                    { command: '/vim', description: '进入vim模式，交替插入和命令模式' }
+                ];
+                console.log('🔄 使用备用命令列表');
             }
         }
 
-        // Append text to terminal
-        function appendToTerminal(text) {
-            const terminal = document.getElementById('terminal');
-            const lines = text.split('\n');
+        // 翻译常见命令描述
+        function translateDescription(desc) {
+            const translations = {
+                'Add additional working directories': '添加额外的工作目录',
+                'Manage custom AI subagents for specialized tasks': '管理专用任务的自定义AI子代理',
+                'Report bugs (sends conversation to Anthropic)': '报告错误（发送对话到Anthropic）',
+                'Clear conversation history': '清空对话历史',
+                'Compact conversation with optional focus instructions': '压缩对话，可选聚焦指令',
+                'View/modify configuration': '查看/修改配置',
+                'Show token usage statistics': '显示token使用统计',
+                'Checks the health of your Claude Code installation': '检查Claude Code安装健康状态',
+                'Get usage help': '获取使用帮助',
+                'Initialize project with CLAUDE.md guide': '使用CLAUDE.md指南初始化项目',
+                'Switch Anthropic accounts': '切换Anthropic账户',
+                'Sign out from your Anthropic account': '退出Anthropic账户',
+                'Manage MCP server connections and OAuth authentication': '管理MCP服务器连接和OAuth认证',
+                'Edit CLAUDE.md memory files': '编辑CLAUDE.md记忆文件',
+                'Select or change the AI model': '选择或更改AI模型',
+                'View or update permissions': '查看或更新权限',
+                'View pull request comments': '查看拉取请求评论',
+                'Request code review': '请求代码审查',
+                'View account and system statuses': '查看账户和系统状态',
+                'Install Shift+Enter key binding for newlines': '安装Shift+Enter换行键绑定',
+                'Enter vim mode for alternating insert and command modes': '进入vim模式，交替插入和命令模式'
+            };
             
-            lines.forEach(line => {
-                const div = document.createElement('div');
-                div.className = 'terminal-line';
-                div.textContent = line || ' '; // Use space for empty lines
-                terminal.appendChild(div);
+            return translations[desc] || desc;
+        }
+
+        let selectedCommandIndex = -1;
+
+        // 监听input事件，辅助判断输入法状态和命令补全
+        function handleInput(event) {
+            // 使用 event.isComposing 作为额外的判断依据
+            if (event.isComposing !== undefined && event.isComposing !== isComposing) {
+                console.log('📝 Input event 检测到输入法状态变化:', event.isComposing);
+                isComposing = event.isComposing;
+            }
+
+            // 处理命令自动补全
+            const input = event.target;
+            const value = input.value;
+            const cursorPosition = input.selectionStart;
+            
+            // 检查光标位置的文本是否以 / 开头
+            const textBeforeCursor = value.substring(0, cursorPosition);
+            const lastSlashIndex = textBeforeCursor.lastIndexOf('/');
+            
+            if (lastSlashIndex !== -1 && lastSlashIndex === textBeforeCursor.length - 1) {
+                // 刚输入 /，显示所有命令
+                showAutocomplete(claudeCommands, '');
+            } else if (lastSlashIndex !== -1) {
+                // 有 / 且后面有文本，进行筛选
+                const commandText = textBeforeCursor.substring(lastSlashIndex);
+                if (commandText.startsWith('/') && commandText.length > 1) {
+                    const query = commandText.toLowerCase();
+                    const filteredCommands = claudeCommands.filter(cmd => 
+                        cmd.command.toLowerCase().includes(query)
+                    );
+                    if (filteredCommands.length > 0) {
+                        showAutocomplete(filteredCommands, query);
+                    } else {
+                        hideAutocomplete();
+                    }
+                } else if (commandText === '/') {
+                    showAutocomplete(claudeCommands, '');
+                }
+            } else {
+                hideAutocomplete();
+            }
+        }
+
+        // 显示自动补全下拉框
+        function showAutocomplete(commands, query) {
+            const dropdown = document.getElementById('autocompleteDropdown');
+            selectedCommandIndex = -1;
+            
+            dropdown.innerHTML = commands.map((cmd, index) => `
+                <div class="autocomplete-item" data-index="${index}" onclick="selectCommand('${cmd.command}')">
+                    <div class="autocomplete-command">${cmd.command}</div>
+                    <div class="autocomplete-description">${cmd.description}</div>
+                </div>
+            `).join('');
+            
+            dropdown.classList.add('show');
+        }
+
+        // 隐藏自动补全下拉框
+        function hideAutocomplete() {
+            const dropdown = document.getElementById('autocompleteDropdown');
+            dropdown.classList.remove('show');
+            selectedCommandIndex = -1;
+        }
+
+        // 选择命令
+        function selectCommand(command) {
+            const input = document.getElementById('messageInput');
+            const value = input.value;
+            const cursorPosition = input.selectionStart;
+            
+            // 找到最后一个 / 的位置
+            const textBeforeCursor = value.substring(0, cursorPosition);
+            const lastSlashIndex = textBeforeCursor.lastIndexOf('/');
+            
+            if (lastSlashIndex !== -1) {
+                // 替换从 / 开始到光标位置的文本
+                const newValue = value.substring(0, lastSlashIndex) + command + ' ' + value.substring(cursorPosition);
+                input.value = newValue;
+                
+                // 设置光标位置到命令后面
+                const newCursorPos = lastSlashIndex + command.length + 1;
+                input.setSelectionRange(newCursorPos, newCursorPos);
+            }
+            
+            hideAutocomplete();
+            input.focus();
+        }
+
+        // 处理键盘导航
+        function handleAutocompleteNavigation(event) {
+            const dropdown = document.getElementById('autocompleteDropdown');
+            if (!dropdown.classList.contains('show')) return false;
+            
+            const items = dropdown.querySelectorAll('.autocomplete-item');
+            if (items.length === 0) return false;
+            
+            switch(event.key) {
+                case 'ArrowDown':
+                    event.preventDefault();
+                    selectedCommandIndex = (selectedCommandIndex + 1) % items.length;
+                    updateSelectedCommand(items);
+                    return true;
+                    
+                case 'ArrowUp':
+                    event.preventDefault();
+                    selectedCommandIndex = selectedCommandIndex <= 0 ? items.length - 1 : selectedCommandIndex - 1;
+                    updateSelectedCommand(items);
+                    return true;
+                    
+                case 'Enter':
+                    if (selectedCommandIndex >= 0 && selectedCommandIndex < items.length) {
+                        event.preventDefault();
+                        const selectedCommand = items[selectedCommandIndex].querySelector('.autocomplete-command').textContent;
+                        selectCommand(selectedCommand);
+                        return true;
+                    }
+                    break;
+                    
+                case 'Escape':
+                    hideAutocomplete();
+                    return true;
+            }
+            
+            return false;
+        }
+
+        // 更新选中的命令样式
+        function updateSelectedCommand(items) {
+            items.forEach((item, index) => {
+                if (index === selectedCommandIndex) {
+                    item.classList.add('selected');
+                } else {
+                    item.classList.remove('selected');
+                }
             });
-            
-            // Auto-scroll to bottom
-            terminal.scrollTop = terminal.scrollHeight;
         }
 
-        // Send command
-        async function sendCommand() {
-            const input = document.getElementById('commandInput');
-            const command = input.value.trim();
-            
-            if (!command || !currentSessionId) return;
-
-            try {
-                const response = await fetch(`${API_BASE}/api/v1/terminal/sessions/${currentSessionId}/input`, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ input: command })
-                });
-
-                if (response.ok) {
-                    input.value = '';
-                    appendToTerminal(`> ${command}`);
-                }
-            } catch (error) {
-                console.error('Failed to send command:', error);
-            }
+        // Auto Resize Textarea
+        function autoResize(textarea) {
+            textarea.style.height = 'auto';
+            textarea.style.height = Math.min(textarea.scrollHeight, 100) + 'px';
         }
 
-        // Handle input keypress
-        function handleInputKeypress(event) {
-            if (event.key === 'Enter') {
-                sendCommand();
-            }
-        }
-
-        // Clear terminal
-        function clearTerminal() {
-            document.getElementById('terminal').innerHTML = '';
-        }
-
-        // Refresh session
-        function refreshSession() {
-            if (currentSessionId) {
-                selectSession(currentSessionId);
-            }
-        }
-
-        // Kill session
-        async function killSession() {
-            if (!currentSessionId) return;
-            
-            if (!confirm('Are you sure you want to kill this session?')) return;
-
-            try {
-                const response = await fetch(`${API_BASE}/api/v1/terminal/sessions/${currentSessionId}`, {
-                    method: 'DELETE'
-                });
-
-                if (response.ok) {
-                    currentSessionId = null;
-                    document.getElementById('emptyState').style.display = 'block';
-                    document.getElementById('terminalView').style.display = 'none';
-                    loadSessions();
-                }
-            } catch (error) {
-                console.error('Failed to kill session:', error);
-            }
-        }
-
-        // Show new session modal
-        function showNewSessionModal() {
-            document.getElementById('newSessionModal').classList.add('show');
-        }
-
-        // Hide new session modal
-        function hideNewSessionModal() {
-            document.getElementById('newSessionModal').classList.remove('show');
-            document.getElementById('sessionName').value = '';
-        }
-
-        // Create new session
-        async function createSession() {
-            const tool = document.getElementById('toolSelect').value;
-            const name = document.getElementById('sessionName').value || `${tool}-${Date.now()}`;
-
+        // Create New Session
+        async function createNewSession() {
             try {
                 const response = await fetch(`${API_BASE}/api/v1/terminal/sessions`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ tool, name })
+                    body: JSON.stringify({ 
+                        tool: 'claude', 
+                        name: `claude-${Date.now()}` 
+                    })
                 });
 
                 if (response.ok) {
                     const session = await response.json();
-                    hideNewSessionModal();
                     await loadSessions();
                     selectSession(session.id);
                 }
             } catch (error) {
-                console.error('Failed to create session:', error);
+                console.error('创建会话失败:', error);
+            }
+        }
+
+        // Clear Messages
+        function clearMessages() {
+            messages = [];
+            hideTypingIndicator();
+            renderMessages();
+        }
+
+        // Scroll to Bottom
+        function scrollToBottom() {
+            const container = document.getElementById('messagesContainer');
+            if (container) {
+                // 使用 requestAnimationFrame 确保DOM已更新
+                requestAnimationFrame(() => {
+                    container.scrollTop = container.scrollHeight;
+                });
+            }
+        }
+
+        // 强制滚动到底部（调试用）
+        function forceScrollToBottom() {
+            const container = document.getElementById('messagesContainer');
+            if (container) {
+                container.scrollTo({
+                    top: container.scrollHeight,
+                    behavior: 'smooth'
+                });
+                console.log(`滚动: scrollHeight=${container.scrollHeight}, scrollTop=${container.scrollTop}`);
             }
         }
     </script>
