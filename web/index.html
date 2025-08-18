@@ -522,8 +522,8 @@
                                 onkeydown="handleKeyPress(event)"
                                 oninput="autoResize(this); handleInput(event)"
                                 oncompositionstart="handleCompositionStart(event)"
+                                oncompositionupdate="handleCompositionUpdate(event)"
                                 oncompositionend="handleCompositionEnd(event)"
-                                oncompositionupdate="isComposing = true"
                             ></textarea>
                         </div>
                         <button class="send-btn" onclick="sendMessage()" id="sendBtn">
@@ -545,6 +545,7 @@
         let typingTimeout = null;
         let isComposing = false; // IME 输入状态
         let lastCompositionEnd = 0; // 最后一次composition结束时间
+        let compositionData = ''; // 当前组合文本
 
         // Initialize
         document.addEventListener('DOMContentLoaded', () => {
@@ -777,12 +778,19 @@
             return content;
         }
 
-        // Send Message
+        // Send Message - 移除重复检查，相信handleKeyPress的判断
         async function sendMessage() {
             const input = document.getElementById('messageInput');
             const message = input.value.trim();
             
-            if (!message || !currentSessionId || isComposing) return;
+            // 只做基本检查
+            if (!message || !currentSessionId) {
+                console.log('🚫 消息为空或无会话');
+                return;
+            }
+            
+            console.log('📤 执行发送消息:', message);
+            
 
             // 显示加载状态
             const sendBtn = document.getElementById('sendBtn');
@@ -792,17 +800,25 @@
 
             try {
                 if (ws && ws.readyState === WebSocket.OPEN) {
-                    ws.send(JSON.stringify({
+                    const messageData = {
                         action: 'sendMessage',
                         sessionId: currentSessionId,
-                        input: message
-                    }));
+                        input: message,
+                        timestamp: Date.now() // 添加时间戳防重复
+                    };
                     
+                    console.log('🔗 WebSocket发送数据:', messageData);
+                    ws.send(JSON.stringify(messageData));
+                    
+                    console.log('🧹 清空输入框');
                     input.value = '';
                     autoResize(input);
                     
                     // 显示输入动画
                     showTypingIndicator();
+                    console.log('✅ 消息发送完成，等待回复');
+                } else {
+                    console.error('❌ WebSocket未连接，无法发送消息');
                 }
             } catch (error) {
                 console.error('发送消息失败:', error);
@@ -841,44 +857,64 @@
             }
         }
 
-        // Handle Key Press & IME - 重新设计
+        // Handle Key Press & IME - 基于Gemini CLI最佳实践
         function handleKeyPress(event) {
             // 首先处理自动补全导航
             if (handleAutocompleteNavigation(event)) {
-                return; // 如果处理了自动补全导航，直接返回
+                return;
             }
 
-            // 关键：只有在确认不是输入法状态时才处理Enter
-            if (event.key === 'Enter' && !event.shiftKey) {
-                // 如果正在输入法组合中，完全不处理，让输入法自己处理
-                if (isComposing) {
-                    console.log('在输入法组合中，让输入法处理Enter键');
-                    return; // 不调用 preventDefault，让输入法选词
-                }
+            // Enter键处理 - 极简Gemini CLI模式，移除所有时间缓冲
+            if (event.key === 'Enter') {
+                console.log('🔍 Enter键状态:', {
+                    eventIsComposing: event.isComposing,
+                    ctrl: event.ctrlKey,
+                    meta: event.metaKey, 
+                    shift: event.shiftKey,
+                    alt: event.altKey
+                });
                 
-                // 刚结束输入法选词后的短暂时间内也不处理
-                const now = Date.now();
-                if (now - lastCompositionEnd < 150) {
-                    console.log('刚结束输入法，等待一下');
+                // 唯一检查1：浏览器API检测输入法状态
+                if (event.isComposing) {
+                    console.log('🎌 输入法组合中，跳过');
                     return;
                 }
                 
-                // 只有在非输入法状态下才发送消息
-                console.log('发送消息');
+                // 唯一检查2：Gemini CLI的修饰符检查
+                if (event.ctrlKey || event.metaKey || event.shiftKey || event.altKey) {
+                    console.log('🎌 修饰符存在，跳过');
+                    return;
+                }
+                
+                // 立即发送，不再有任何延迟或缓冲！
+                console.log('✅ 立即发送消息');
                 event.preventDefault();
                 sendMessage();
             }
         }
 
         function handleCompositionStart(event) {
-            console.log('🎌 输入法开始:', event.data);
+            console.log('🎌 组合开始:', event.data || '');
             isComposing = true;
+            compositionData = event.data || '';
+        }
+
+        function handleCompositionUpdate(event) {
+            console.log('🎌 组合更新:', event.data || '');
+            isComposing = true; // 确保状态正确
+            compositionData = event.data || '';
         }
 
         function handleCompositionEnd(event) {
-            console.log('🎌 输入法结束:', event.data);
+            console.log('🎌 组合结束:', event.data || '');
             isComposing = false;
+            compositionData = '';
             lastCompositionEnd = Date.now();
+            
+            // 额外延迟确保状态完全稳定
+            setTimeout(() => {
+                console.log('🎌 组合状态稳定检查');
+            }, 10);
         }
 
         // Command autocomplete data - 从官方文档动态获取
@@ -995,15 +1031,31 @@
 
         let selectedCommandIndex = -1;
 
-        // 监听input事件，辅助判断输入法状态和命令补全
+        // 监听input事件，辅助判断输入法状态和命令补全 - 立即同步状态
         function handleInput(event) {
-            // 使用 event.isComposing 作为额外的判断依据
-            if (event.isComposing !== undefined && event.isComposing !== isComposing) {
-                console.log('📝 Input event 检测到输入法状态变化:', event.isComposing);
+            // 关键修复：立即同步状态，不依赖异步更新
+            if (event.isComposing !== undefined) {
+                // 立即同步，不等待
                 isComposing = event.isComposing;
+                
+                if (event.isComposing) {
+                    console.log('📝 输入法组合中，跳过命令补全');
+                    return;
+                } else {
+                    // 输入法结束时立即更新时间戳
+                    lastCompositionEnd = Date.now();
+                    console.log('📝 输入法结束，更新时间戳');
+                }
             }
+            
+            // 只在确认非组合状态下处理命令自动补全
+            if (!isComposing && !event.isComposing) {
+                handleCommandAutocomplete(event);
+            }
+        }
 
-            // 处理命令自动补全
+        // 分离命令自动补全逻辑
+        function handleCommandAutocomplete(event) {
             const input = event.target;
             const value = input.value;
             const cursorPosition = input.selectionStart;
