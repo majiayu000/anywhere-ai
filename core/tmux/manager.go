@@ -143,6 +143,37 @@ func (m *Manager) SendCommand(ctx context.Context, sessionID string, command str
 	return nil
 }
 
+// SendLiteralInput sends literal input to a tmux session (for Claude)
+func (m *Manager) SendLiteralInput(ctx context.Context, sessionID string, input string) error {
+	m.mu.RLock()
+	session, exists := m.sessions[sessionID]
+	m.mu.RUnlock()
+
+	if !exists {
+		return fmt.Errorf("session %s not found", sessionID)
+	}
+
+	// Use tmux send-keys with -l flag for literal input
+	// This is better for Claude which expects actual text input
+	cmd := exec.CommandContext(ctx, "tmux", "send-keys", "-l", "-t", session.PaneID, input)
+	if err := cmd.Run(); err != nil {
+		return fmt.Errorf("failed to send literal input: %w", err)
+	}
+	
+	// Send Enter key separately
+	enterCmd := exec.CommandContext(ctx, "tmux", "send-keys", "-t", session.PaneID, "Enter")
+	if err := enterCmd.Run(); err != nil {
+		return fmt.Errorf("failed to send Enter key: %w", err)
+	}
+
+	// Update last active time
+	m.mu.Lock()
+	session.LastActive = time.Now()
+	m.mu.Unlock()
+
+	return nil
+}
+
 // CaptureOutput captures the current output from a tmux session
 func (m *Manager) CaptureOutput(ctx context.Context, sessionID string) (string, error) {
 	m.mu.RLock()

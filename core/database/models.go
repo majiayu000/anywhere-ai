@@ -9,7 +9,7 @@ import (
 
 // User represents a user in the system (from Omnara)
 type User struct {
-	ID          uuid.UUID `gorm:"type:uuid;primary_key;default:gen_random_uuid()" json:"id"`
+	ID          uuid.UUID `gorm:"type:uuid;primary_key" json:"id"`
 	Email       string    `gorm:"unique;not null" json:"email"`
 	DisplayName *string   `json:"display_name"`
 	CreatedAt   time.Time `json:"created_at"`
@@ -32,7 +32,7 @@ type User struct {
 
 // UserAgent represents a configured AI agent (from Omnara)
 type UserAgent struct {
-	ID             uuid.UUID  `gorm:"type:uuid;primary_key;default:gen_random_uuid()" json:"id"`
+	ID             uuid.UUID  `gorm:"type:uuid;primary_key" json:"id"`
 	UserID         uuid.UUID  `gorm:"type:uuid;not null" json:"user_id"`
 	Name           string     `gorm:"not null" json:"name"`
 	WebhookURL     *string    `json:"webhook_url"`
@@ -49,7 +49,7 @@ type UserAgent struct {
 
 // AgentInstance represents a running AI agent session (from Omnara)
 type AgentInstance struct {
-	ID               uuid.UUID  `gorm:"type:uuid;primary_key;default:gen_random_uuid()" json:"id"`
+	ID               uuid.UUID  `gorm:"type:uuid;primary_key" json:"id"`
 	UserAgentID      uuid.UUID  `gorm:"type:uuid;not null" json:"user_agent_id"`
 	UserID           uuid.UUID  `gorm:"type:uuid;not null" json:"user_id"`
 	Status           string     `gorm:"default:'active'" json:"status"`
@@ -68,7 +68,7 @@ type AgentInstance struct {
 
 // Message represents a message in agent communication (from Omnara)
 type Message struct {
-	ID               uuid.UUID              `gorm:"type:uuid;primary_key;default:gen_random_uuid()" json:"id"`
+	ID               uuid.UUID              `gorm:"type:uuid;primary_key" json:"id"`
 	AgentInstanceID  uuid.UUID              `gorm:"type:uuid;not null" json:"agent_instance_id"`
 	SenderType       string                 `gorm:"not null" json:"sender_type"` // "AGENT" or "USER"
 	Content          string                 `gorm:"type:text;not null" json:"content"`
@@ -82,7 +82,7 @@ type Message struct {
 
 // APIKey represents API keys for agent authentication (from Omnara)
 type APIKey struct {
-	ID         uuid.UUID  `gorm:"type:uuid;primary_key;default:gen_random_uuid()" json:"id"`
+	ID         uuid.UUID  `gorm:"type:uuid;primary_key" json:"id"`
 	UserID     uuid.UUID  `gorm:"type:uuid;not null" json:"user_id"`
 	Name       string     `gorm:"not null" json:"name"`
 	APIKeyHash string     `gorm:"not null" json:"api_key_hash"`
@@ -98,7 +98,7 @@ type APIKey struct {
 
 // PushToken represents push notification tokens (from Omnara)
 type PushToken struct {
-	ID         uuid.UUID  `gorm:"type:uuid;primary_key;default:gen_random_uuid()" json:"id"`
+	ID         uuid.UUID  `gorm:"type:uuid;primary_key" json:"id"`
 	UserID     uuid.UUID  `gorm:"type:uuid;not null" json:"user_id"`
 	Token      string     `gorm:"unique;not null" json:"token"`
 	Platform   string     `gorm:"not null" json:"platform"` // 'ios' or 'android'
@@ -113,7 +113,7 @@ type PushToken struct {
 
 // TerminalSession represents a persistent terminal session (our new addition)
 type TerminalSession struct {
-	ID        uuid.UUID `gorm:"type:uuid;primary_key;default:gen_random_uuid()" json:"id"`
+	ID        uuid.UUID `gorm:"type:uuid;primary_key" json:"id"`
 	UserID    uuid.UUID `gorm:"type:uuid;not null" json:"user_id"`
 	Name      string    `gorm:"not null" json:"name"`
 	CreatedAt time.Time `json:"created_at"`
@@ -154,7 +154,7 @@ type TerminalSession struct {
 
 // SessionCheckpoint represents a session checkpoint for recovery
 type SessionCheckpoint struct {
-	ID        uuid.UUID `gorm:"type:uuid;primary_key;default:gen_random_uuid()" json:"id"`
+	ID        uuid.UUID `gorm:"type:uuid;primary_key" json:"id"`
 	SessionID uuid.UUID `gorm:"type:uuid;not null" json:"session_id"`
 	Timestamp time.Time `json:"timestamp"`
 

@@ -3,7 +3,9 @@ package services
 import (
 	"context"
 	"fmt"
+	"log"
 	"net/http"
+	"os/exec"
 	"time"
 
 	"github.com/gin-gonic/gin"
@@ -12,15 +14,19 @@ import (
 
 // TerminalAPIService provides REST API for terminal management
 type TerminalAPIService struct {
-	tmuxManager *tmux.Manager
-	wsService   *TerminalWebSocketService
+	tmuxManager   *tmux.Manager
+	wsService     *TerminalWebSocketService
+	claudeMonitor *ClaudeMonitor
+	jsonlMonitor  *JSONLMonitor
 }
 
 // NewTerminalAPIService creates a new terminal API service
-func NewTerminalAPIService(tmuxManager *tmux.Manager, wsService *TerminalWebSocketService) *TerminalAPIService {
+func NewTerminalAPIService(tmuxManager *tmux.Manager, wsService *TerminalWebSocketService, claudeMonitor *ClaudeMonitor, jsonlMonitor *JSONLMonitor) *TerminalAPIService {
 	return &TerminalAPIService{
-		tmuxManager: tmuxManager,
-		wsService:   wsService,
+		tmuxManager:   tmuxManager,
+		wsService:     wsService,
+		claudeMonitor: claudeMonitor,
+		jsonlMonitor:  jsonlMonitor,
 	}
 }
 
@@ -83,8 +89,8 @@ func (s *TerminalAPIService) CreateSession(c *gin.Context) {
 	toolCmd := ""
 	switch req.Tool {
 	case "claude":
-		// Start Claude Code CLI with proxy settings
-		toolCmd = `HTTP_PROXY="http://123.206.229.164:24454" claude --dangerously-skip-permissions || claude || echo 'Claude not installed. Install with: npm install -g @anthropic-ai/claude-cli'`
+		// Start Claude Code CLI directly without proxy
+		toolCmd = `claude`
 	case "gemini":
 		// Try to start Gemini CLI
 		toolCmd = "gemini || echo 'Gemini not installed. Install Gemini CLI first.'"
@@ -103,11 +109,30 @@ func (s *TerminalAPIService) CreateSession(c *gin.Context) {
 	if toolCmd != "" {
 		s.tmuxManager.SendCommand(ctx, session.ID, toolCmd)
 		
-		// For Claude, send Enter to activate the prompt after a short delay
+		// For Claude, start JSONL monitoring only (more precise)
 		if req.Tool == "claude" {
+			// JSONL monitoring provides precise message extraction
+			if s.jsonlMonitor != nil {
+				go func() {
+					// Wait for Claude to create JSONL file
+					time.Sleep(2 * time.Second)
+					if err := s.jsonlMonitor.StartMonitoring(session.ID); err != nil {
+						log.Printf("Failed to start JSONL monitoring: %v", err)
+						// Fallback to tmux monitoring
+						if s.claudeMonitor != nil {
+							s.claudeMonitor.StartMonitoring(session.ID)
+							log.Printf("Started fallback tmux monitoring for session %s", session.ID)
+						}
+					} else {
+						log.Printf("Started JSONL monitoring for session %s", session.ID)
+					}
+				}()
+			}
+			
 			go func() {
 				time.Sleep(3 * time.Second) // Wait for Claude to start
-				s.tmuxManager.SendCommand(context.Background(), session.ID, "")
+				// Send Tab key to bypass permissions
+				exec.Command("tmux", "send-keys", "-t", session.ID, "Tab").Run()
 			}()
 		}
 	}

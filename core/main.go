@@ -7,11 +7,18 @@ import (
 
 	"github.com/gin-gonic/gin"
 	
+	"github.com/majiayu000/anywhere-ai/core/database"
 	"github.com/majiayu000/anywhere-ai/core/services"
 	"github.com/majiayu000/anywhere-ai/core/tmux"
 )
 
 func main() {
+	// Initialize database
+	db, err := database.InitGormDB()
+	if err != nil {
+		log.Fatalf("Failed to initialize database: %v", err)
+	}
+
 	// Initialize Gin router
 	router := gin.Default()
 
@@ -32,6 +39,7 @@ func main() {
 	// Serve static files (web interface)
 	router.Static("/static", "../web")
 	router.StaticFile("/", "../web/index.html")
+	router.StaticFile("/chat", "../web/chat.html")
 
 	// Health check endpoint
 	router.GET("/health", func(c *gin.Context) {
@@ -46,8 +54,11 @@ func main() {
 	tmuxManager := tmux.NewManager()
 
 	// Initialize services
-	wsService := services.NewTerminalWebSocketService(tmuxManager)
-	apiService := services.NewTerminalAPIService(tmuxManager, wsService)
+	messageService := services.NewMessageService(db)
+	wsService := services.NewTerminalWebSocketService(tmuxManager, messageService)
+	claudeMonitor := services.NewClaudeMonitor(tmuxManager, messageService, wsService)
+	jsonlMonitor := services.NewJSONLMonitor(messageService, wsService)
+	apiService := services.NewTerminalAPIService(tmuxManager, wsService, claudeMonitor, jsonlMonitor)
 
 	// Register routes
 	apiService.RegisterRoutes(router)
